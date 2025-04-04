@@ -7,7 +7,7 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ktx.getValue
 
 class FirebaseService {
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+     val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val database = FirebaseDatabase.getInstance().getReference("users")
 
     fun registerUser(email: String, password: String, name: String, onComplete: (Boolean, String?) -> Unit) {
@@ -40,16 +40,22 @@ class FirebaseService {
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    val uid = auth.currentUser?.uid ?: ""
+                    val uid = auth.currentUser?.uid
+                    if (uid.isNullOrEmpty()) {
+                        onComplete(false, "User UID is empty.", null)
+                        return@addOnCompleteListener
+                    }
                     fetchUser(uid) { user ->
                         if (user != null) {
-                            onComplete(true, null, user) // Thành công
+                            onComplete(true, null, user)
                         } else {
-                            onComplete(false, "Failed to fetch user data.", null)
+                            onComplete(false, "Failed to fetch user data from database.", null)
                         }
                     }
                 } else {
-                    onComplete(false, task.exception?.localizedMessage ?: "Login failed.", null)
+                    val errorMessage = task.exception?.localizedMessage ?: "Login failed."
+                    Log.e("FirebaseService", "Login error: $errorMessage")
+                    onComplete(false, errorMessage, null)
                 }
             }
     }
@@ -68,4 +74,10 @@ class FirebaseService {
     fun logout() {
         FirebaseAuth.getInstance().signOut()
     }
+
+    fun createPlan() {
+
+    }
+
+
 }
