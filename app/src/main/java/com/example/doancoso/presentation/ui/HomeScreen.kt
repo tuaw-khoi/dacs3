@@ -1,6 +1,7 @@
 package com.example.doancoso.presentation.ui
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -19,14 +20,66 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.doancoso.R
+import com.example.doancoso.domain.PlanViewModel
 import com.example.doancoso.domain.preferences.UserPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel) {
+fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel,planViewModel: PlanViewModel ) {
     val authState by authViewModel.authState.collectAsState()
     val context = LocalContext.current
     val userPreferences = UserPreferences(context)
+    var startDate by remember { mutableStateOf("") }
+    var endDate by remember { mutableStateOf("") }
+
+    val startCalendar = remember { java.util.Calendar.getInstance() }
+    val endCalendar = remember { java.util.Calendar.getInstance() }
+
+    val startDatePickerDialog = remember {
+        android.app.DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                val selectedStart = java.util.Calendar.getInstance().apply {
+                    set(year, month, dayOfMonth)
+                }
+
+                if (endDate.isNotEmpty() && selectedStart.after(endCalendar)) {
+                    // Ngày bắt đầu sau ngày kết thúc => không cho phép
+                    Toast.makeText(context, "Ngày bắt đầu không được sau ngày kết thúc!", Toast.LENGTH_SHORT).show()
+                } else {
+                    startCalendar.set(year, month, dayOfMonth)
+                    startDate = "$dayOfMonth/${month + 1}/$year"
+                }
+            },
+            startCalendar.get(java.util.Calendar.YEAR),
+            startCalendar.get(java.util.Calendar.MONTH),
+            startCalendar.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    val endDatePickerDialog = remember {
+        android.app.DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                val selectedEnd = java.util.Calendar.getInstance().apply {
+                    set(year, month, dayOfMonth)
+                }
+
+                if (startDate.isNotEmpty() && selectedEnd.before(startCalendar)) {
+                    // Ngày kết thúc trước ngày bắt đầu => không cho phép
+                    Toast.makeText(context, "Ngày kết thúc không được trước ngày bắt đầu!", Toast.LENGTH_SHORT).show()
+                } else {
+                    endCalendar.set(year, month, dayOfMonth)
+                    endDate = "$dayOfMonth/${month + 1}/$year"
+                }
+            },
+            endCalendar.get(java.util.Calendar.YEAR),
+            endCalendar.get(java.util.Calendar.MONTH),
+            endCalendar.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+    }
+
+
 
     val user = (authState as? AuthState.UserLoggedIn)?.user
 
@@ -81,12 +134,61 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel) {
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
                 trailingIcon = {
-                    IconButton(onClick = { /* TODO: Xử lý tìm kiếm */ }) {
-                        Icon(painter = painterResource(id = R.drawable.search), contentDescription = "Tìm kiếm")
+                    IconButton(onClick = {
+                        if (searchQuery.isNotBlank() && startDate.isNotBlank() && endDate.isNotBlank()) {
+                            planViewModel.fetchPlans(
+                                destination = searchQuery,
+                                startDate = startDate,
+                                endDate = endDate
+                            )
+                            navController.navigate(Screen.SearchPlan.route)
+                        } else {
+                            Toast.makeText(context, "Vui lòng điền đầy đủ thông tin", Toast.LENGTH_SHORT).show()
+                        }
+                    }) {
+                        Icon(painter = painterResource(id = R.drawable.search), contentDescription = null)
                     }
                 }
             )
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Button(
+                onClick = { startDatePickerDialog.show() },
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Từ ngày")
+            }
+
+            Button(
+                onClick = { endDatePickerDialog.show() },
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Đến ngày")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = if (startDate.isNotEmpty() && endDate.isNotEmpty())
+                "Từ $startDate đến $endDate"
+            else
+                "Vui lòng chọn khoảng thời gian",
+            fontSize = 14.sp,
+            color = Color.DarkGray,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+
 
         // Kế hoạch du lịch
         Text(
@@ -128,15 +230,17 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel) {
         // Thanh điều hướng dưới cùng
         BottomAppBar(containerColor = Color.White) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                IconButton(onClick = { /* TODO: Chuyển đến trang Home */ }) {
+                IconButton(onClick = {  navController.navigate("home") } ) {
                     Icon(painter = painterResource(id = R.drawable.homeicon), contentDescription = "Trang chủ")
                 }
                 Divider(modifier = Modifier.height(40.dp).width(1.dp), color = Color.Gray)
-                IconButton(onClick = { /* TODO: Chuyển đến kế hoạch du lịch */ }) {
+                IconButton(onClick = { navController.navigate("plan") }) {
                     Icon(painter = painterResource(id = R.drawable.planicon), contentDescription = "Kế hoạch")
                 }
                 Divider(modifier = Modifier.height(40.dp).width(1.dp), color = Color.Gray)
-                IconButton(onClick = { /* TODO: Chuyển đến cài đặt */ }) {
+                IconButton(onClick = {
+                    navController.navigate("setting")
+                }) {
                     Icon(painter = painterResource(id = R.drawable.setting), contentDescription = "Cài đặt")
                 }
             }

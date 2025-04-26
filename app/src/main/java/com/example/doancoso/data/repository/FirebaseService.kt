@@ -1,10 +1,13 @@
 package com.example.doancoso.data.repository
 
 import android.util.Log
+import com.example.doancoso.data.models.PlanResult
+import com.example.doancoso.data.models.PlanResultDb
 import com.example.doancoso.data.models.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ktx.getValue
+import kotlinx.coroutines.tasks.await
 
 class FirebaseService {
      val auth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -37,9 +40,11 @@ class FirebaseService {
     }
 
     fun loginUser(email: String, password: String, onComplete: (Boolean, String?, User?) -> Unit) {
+        Log.e("user", "user : $email")
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
+                    Log.e("user", "user : $email")
                     val uid = auth.currentUser?.uid
                     if (uid.isNullOrEmpty()) {
                         onComplete(false, "User UID is empty.", null)
@@ -47,8 +52,10 @@ class FirebaseService {
                     }
                     fetchUser(uid) { user ->
                         if (user != null) {
+                            Log.e("FirebaseService", "user : $user")
                             onComplete(true, null, user)
                         } else {
+                            Log.e("FirebaseService", "user1 : $user")
                             onComplete(false, "Failed to fetch user data from database.", null)
                         }
                     }
@@ -57,6 +64,9 @@ class FirebaseService {
                     Log.e("FirebaseService", "Login error: $errorMessage")
                     onComplete(false, errorMessage, null)
                 }
+                if (task.isCanceled) {
+                    Log.e("FirebaseService", "Login task was canceled.")
+                }
             }
     }
 
@@ -64,6 +74,7 @@ class FirebaseService {
         database.child(uid).get()
             .addOnSuccessListener { snapshot ->
                 val user = snapshot.getValue<User>()
+                Log.d("FirebaseService", "Dữ liệu user từ database: $user")
                 onComplete(user)
             }
             .addOnFailureListener {
@@ -75,9 +86,80 @@ class FirebaseService {
         FirebaseAuth.getInstance().signOut()
     }
 
-    fun createPlan() {
+    fun savePlan(uid: String, plan: PlanResult, onComplete: (Boolean, String?) -> Unit) {
+        val plansRef = FirebaseDatabase.getInstance().getReference("plans").child(uid)
+        val planId = plansRef.push().key
 
+        if (planId == null) {
+            onComplete(false, "Không thể tạo ID cho kế hoạch.")
+            return
+        }
+
+        plansRef.child(planId).setValue(plan)
+            .addOnSuccessListener {
+                Log.d("FirebaseService", "Lưu kế hoạch thành công: $planId")
+                onComplete(true, null)
+            }
+            .addOnFailureListener { exception ->
+                Log.e("FirebaseService", "Lỗi khi lưu kế hoạch: ${exception.message}")
+                onComplete(false, exception.message)
+            }
     }
+
+    // Cập nhật FirebaseService để trả về Result trực tiếp
+    suspend fun getPlansFromDb(uid: String): Result<List<PlanResult>> {
+        return try {
+            val plansRef = FirebaseDatabase.getInstance().getReference("plans").child(uid)
+            val snapshot = plansRef.get().await()
+
+            if (snapshot.exists()) {
+                val plansList = mutableListOf<PlanResult>()
+                snapshot.children.forEach { planSnapshot ->
+                    val plan = planSnapshot.getValue(PlanResult::class.java)
+                    plan?.let {
+                        it.uid = planSnapshot.key
+                        plansList.add(it)
+                    }
+                }
+                Result.success(plansList)  // Trả về Result chứa danh sách kế hoạch
+            } else {
+                Result.failure(Exception("No plans found for this user"))
+            }
+        } catch (e: Exception) {
+            Log.e("FirebaseService", "Error fetching plans from database", e)  // Log lỗi chi tiết
+            Result.failure(e)  // Trả về Result chứa lỗi nếu có ngoại lệ
+        }
+    }
+
+
+    suspend fun getPlanById(uid: String, planId: String): Result<PlanResultDb> {
+        return try {
+            val planRef = FirebaseDatabase.getInstance()
+                .getReference("plans")
+                .child(uid)
+                .child(planId)
+
+            val snapshot = planRef.get().await()
+
+            if (snapshot.exists()) {
+                val plan = snapshot.getValue(PlanResultDb::class.java)
+                if (plan != null) {
+                    plan.uid = uid  // Nếu cần gán lại uid
+                    Result.success(plan)
+                } else {
+                    Result.failure(Exception("Plan not found"))
+                }
+            } else {
+                Result.failure(Exception("Plan not found"))
+            }
+        } catch (e: Exception) {
+            Log.e("FirebaseService", "Error fetching plan by id", e)
+            Result.failure(e)
+        }
+    }
+
+
+
 
 
 }

@@ -1,5 +1,6 @@
 package com.example.doancoso.presentation.ui
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.doancoso.R
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun LoginScreen(
@@ -116,6 +118,7 @@ fun LoginScreen(
                             errorMessage = "Vui lòng nhập email và mật khẩu!"
                         } else {
                             errorMessage = null
+                            Log.d("LoginScreen", "Đăng nhập với email=$email, password=$password")
                             authViewModel.loginUser(email, password)
                         }
                     },

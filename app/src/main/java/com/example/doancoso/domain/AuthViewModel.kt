@@ -60,12 +60,14 @@ class AuthViewModel(
     }
 
     fun loginUser(email: String, password: String) {
+        Log.e("user", "user : $email")
         _authState.value = AuthState.Loading
         firebaseService.loginUser(email, password) { success, error, user ->
             if (success && user != null) {
+                Log.e("user", "user : $user")
                 _user.value = user
                 _authState.value = AuthState.UserLoggedIn(user)
-
+                Log.e("noti", " _authState.value : $authState")
                 // Lưu thông tin người dùng vào SharedPreferences
                 viewModelScope.launch {
                     userPreferences.saveUser(
