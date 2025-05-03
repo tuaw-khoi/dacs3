@@ -1,4 +1,4 @@
-package com.example.doancoso.presentation.ui
+package com.example.doancoso.domain
 
 import android.util.Log
 import androidx.lifecycle.ViewModel

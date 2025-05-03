@@ -19,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavHostController
 import com.example.doancoso.R
 import com.example.doancoso.data.models.PlanResult
+import com.example.doancoso.domain.AuthState
+import com.example.doancoso.domain.AuthViewModel
 
 @Composable
 fun SearchPlanScreen(

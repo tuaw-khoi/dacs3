@@ -8,11 +8,12 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.doancoso.data.models.DestinationDetails
 import com.example.doancoso.data.remote.ApiClient
 import com.example.doancoso.data.remote.PlanService
 import com.example.doancoso.data.repository.FirebaseService
 import com.example.doancoso.data.repository.PlanRepository
+import com.example.doancoso.domain.AuthViewModel
+import com.example.doancoso.domain.AuthViewModelFactory
 import com.example.doancoso.domain.PlanViewModel
 import com.example.doancoso.domain.factory.PlanViewModelFactory
 import com.example.doancoso.domain.preferences.UserPreferences
@@ -24,6 +25,7 @@ sealed class Screen(val route: String) {
     data object Setting : Screen("setting")
     data object SearchPlan : Screen("searchPlan")
     data object Plan : Screen("plan")
+
 }
 
 @Composable
@@ -38,7 +40,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
     authViewModel.clearCache()
 
     val planService = remember { ApiClient.retrofit.create(PlanService::class.java) }
-    val planRepository = remember { PlanRepository(planService,firebaseService) }
+    val planRepository = remember { PlanRepository(planService, firebaseService) }
 
     val planViewModel: PlanViewModel = viewModel(
         factory = PlanViewModelFactory(planRepository)
@@ -59,10 +61,18 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
             SettingScreen(navController = navController, authViewModel = authViewModel)
         }
         composable(Screen.SearchPlan.route) {
-            SearchPlanScreen(navController = navController, authViewModel = authViewModel,planViewModel = planViewModel)
+            SearchPlanScreen(
+                navController = navController,
+                authViewModel = authViewModel,
+                planViewModel = planViewModel
+            )
         }
         composable(Screen.Plan.route) {
-            PlanScreen(navController = navController, authViewModel = authViewModel,planViewModel = planViewModel)
+            PlanScreen(
+                navController = navController,
+                authViewModel = authViewModel,
+                planViewModel = planViewModel
+            )
         }
         composable(
             "planDetail/{planId}"
@@ -83,8 +93,25 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 navController = navController,
                 authViewModel = authViewModel,
                 destination = destinationName,
-                planViewModel = planViewModel)
+                planViewModel = planViewModel
+            )
         }
+
+
+
+        composable("editPlan/{planId}") { backStackEntry ->
+            val planId = backStackEntry.arguments?.getString("planId") ?: ""
+            EditPlanScreen(
+                navController = navController,
+                planId = planId,
+                planViewModel = planViewModel,
+                authViewModel = authViewModel
+            )
+        }
+
+
+
+
     }
 }
 

@@ -17,7 +17,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.doancoso.R
-import com.google.firebase.auth.FirebaseAuth
+import com.example.doancoso.domain.AuthState
+import com.example.doancoso.domain.AuthViewModel
 
 @Composable
 fun LoginScreen(

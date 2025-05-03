@@ -20,12 +20,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.doancoso.R
+import com.example.doancoso.domain.AuthState
+import com.example.doancoso.domain.AuthViewModel
 import com.example.doancoso.domain.PlanViewModel
 import com.example.doancoso.domain.preferences.UserPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel,planViewModel: PlanViewModel ) {
+fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, planViewModel: PlanViewModel ) {
     val authState by authViewModel.authState.collectAsState()
     val context = LocalContext.current
     val userPreferences = UserPreferences(context)

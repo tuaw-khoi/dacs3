@@ -18,7 +18,7 @@ data class ItineraryDb(
 )
 
 data class DayPlanDb(
-    val activities: List<ActivityDetailDb> = emptyList()
+    var activities: List<ActivityDetailDb> = emptyList()
 )
 
 data class ActivityDetailDb(

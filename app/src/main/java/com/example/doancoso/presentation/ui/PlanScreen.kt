@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.doancoso.R
 import com.example.doancoso.data.models.PlanResult
+import com.example.doancoso.domain.AuthState
+import com.example.doancoso.domain.AuthViewModel
 import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
 

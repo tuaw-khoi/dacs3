@@ -1,11 +1,13 @@
 package com.example.doancoso.data.repository
 
+import android.util.Log
+import com.example.doancoso.data.models.DayPlanDb
 import com.example.doancoso.data.models.DestinationDetails
 import com.example.doancoso.data.models.PlanResult
 import com.example.doancoso.data.models.PlanResultDb
 import com.example.doancoso.data.remote.PlanService
 
-class PlanRepository(private val api: PlanService,private val firebaseService: FirebaseService) {
+class PlanRepository(private val api: PlanService, private val firebaseService: FirebaseService) {
     suspend fun getPlan(destination: String, startDate: String, endDate: String): PlanResult {
         val response = api.getPlans(destination, startDate, endDate)
         if (response.isSuccessful) {
@@ -35,4 +37,40 @@ class PlanRepository(private val api: PlanService,private val firebaseService: F
     suspend fun getPlanById(uid: String, planId: String): Result<PlanResultDb> {
         return firebaseService.getPlanById(uid, planId)
     }
+
+    suspend fun updatePlan(uid: String, updatedPlan: PlanResultDb, planId: String): Result<Unit> {
+        return firebaseService.updatePlan(uid, updatedPlan, planId)
+    }
+
+
+//    suspend fun updateDayPlan(uid: String, planId: String, dayIndex: Int, updatedDayPlan: DayPlanDb) {
+//        firebaseService.updateDayPlan(uid, planId, dayIndex, updatedDayPlan)
+//
+//    }
+
+    // PlanRepository
+    suspend fun updateDayPlan(
+        uid: String,
+        planId: String,
+        dayIndex: Int,
+        updatedDayPlan: DayPlanDb
+    ): Result<Unit> {
+        return try {
+            firebaseService.updateDayPlan(
+                uid,
+                planId,
+                dayIndex,
+                updatedDayPlan
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    // PlanRepository
+    suspend fun deleteActivity(dayIndex: Int, activityIndex: Int, planId: String, uid: String): Result<Unit> {
+        return firebaseService.deleteActivityFromPlan(uid, planId, dayIndex, activityIndex)
+    }
+
+
 }
