@@ -6,7 +6,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    private const val BASE_URL = "https://travel-ai-api-production.up.railway.app/"
+    private const val BASE_URL = "https://travel-ai-api-production-2fec.up.railway.app/"
+
 
     // Thiết lập OkHttpClient với các timeout
     private val okHttpClient = OkHttpClient.Builder()

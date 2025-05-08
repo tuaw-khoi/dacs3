@@ -13,29 +13,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,15 +38,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.example.doancoso.data.models.DayPlanDb
 import com.example.doancoso.data.models.PlanResultDb
 import com.example.doancoso.domain.AuthState
 import com.example.doancoso.domain.AuthViewModel
 import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
+
 
 @Composable
 fun PlanDetailScreen(
@@ -109,16 +103,50 @@ fun PlanDetailScreen(
 
         is PlanUiState.Error -> {
             val message = (planState as PlanUiState.Error).message
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(text = "Lỗi: $message", color = MaterialTheme.colorScheme.error)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.1f)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = "Không có dữ liệu",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(end = 16.dp)
+                        )
+                        Text(
+                            text = message ?: "Không có dữ liệu kế hoạch",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Center // Đặt text căn giữa
+                        )
+                    }
+                }
             }
         }
+
 
         else -> {}
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlanDetailContent(
     planDb: PlanResultDb,
@@ -126,17 +154,18 @@ fun PlanDetailContent(
     planId: String,
     planViewModel: PlanViewModel,
     uid: String
-) {  // Thêm navController vào đây
-    val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var showSheet by remember { mutableStateOf(false) }
-    var selectedDayIndex by remember { mutableStateOf(-1) }
+) {
+    // Tạo một state để hiển thị dialog xác nhận xóa ngày
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var dayIndexToDelete by remember { mutableStateOf(-1) }
+
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
         item {
-            // Thông tin chung của kế hoạch
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
@@ -185,7 +214,6 @@ fun PlanDetailContent(
                         color = Color.Gray
                     )
 
-                    // Hiển thị các món đặc sản
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "🍽️ Đặc sản gợi ý: ${planDb.itinerary.specialties.joinToString(", ")}",
@@ -193,7 +221,6 @@ fun PlanDetailContent(
                         color = Color.Gray
                     )
 
-                    // Hiển thị các phương tiện di chuyển
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "🚗 Phương tiện di chuyển: ${
@@ -216,8 +243,8 @@ fun PlanDetailContent(
             )
         }
 
-        // Danh sách lịch trình theo từng ngày
         itemsIndexed(planDb.itinerary.itinerary) { index, dayPlan ->
+
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -238,10 +265,23 @@ fun PlanDetailContent(
                             color = MaterialTheme.colorScheme.primary
                         )
 
-                        // Nút chỉnh sửa từng ngày
+                        // Nút xóa ngày
+                        IconButton(
+                            onClick = {
+                                dayIndexToDelete = index
+                                showDeleteDialog = true
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = "Xóa ngày",
+                                tint = Color.Red
+                            )
+                        }
+
+                        // Nút chỉnh sửa ngày
                         TextButton(onClick = {
-                            selectedDayIndex = index
-                            showSheet = true
+                            navController.navigate("editDay/$planId/$uid/$index")
                         }) {
                             Text("Chỉnh sửa ngày", color = MaterialTheme.colorScheme.primary)
                         }
@@ -249,8 +289,18 @@ fun PlanDetailContent(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
+                    val sortedActivities = dayPlan.activities
+                        ?.sortedWith(compareBy { activity ->
+                            when (activity.timeOfDay) {
+                                "Buổi Sáng" -> 0
+                                "Buổi Chiều" -> 1
+                                "Buổi Tối" -> 2
+                                else -> 3
+                            }
+                        })
+
                     // Danh sách các hoạt động trong ngày
-                    dayPlan.activities?.forEachIndexed { activityIndex, activity ->
+                    sortedActivities?.forEachIndexed { activityIndex, activity ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -290,7 +340,12 @@ fun PlanDetailContent(
                             // Nút xóa hoạt động
                             IconButton(
                                 onClick = {
-                                    planViewModel.deleteActivityFromPlan(index, activityIndex, planId, uid)
+                                    planViewModel.deleteActivityFromPlan(
+                                        index,
+                                        activityIndex,
+                                        planId,
+                                        uid
+                                    )
                                 }
                             ) {
                                 Icon(
@@ -306,258 +361,77 @@ fun PlanDetailContent(
             }
         }
 
-    }
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
 
-    if (showSheet && selectedDayIndex >= 0 && selectedDayIndex < planDb.itinerary.itinerary.size) {
-        ModalBottomSheet(
-            onDismissRequest = { showSheet = false },
-            sheetState = bottomSheetState
-        ) {
-            EditDayBottomSheet(
-                dayIndex = selectedDayIndex,
-                dayPlan = planDb.itinerary.itinerary[selectedDayIndex],
-                onClose = { showSheet = false },
-                planViewModel = planViewModel,
-                planId = planId,
-                uid = uid
-            )
-        }
-    }
-}
-
-@Composable
-fun EditDayBottomSheet(
-    dayIndex: Int,
-    dayPlan: DayPlanDb,
-    onClose: () -> Unit,
-    planViewModel: PlanViewModel,
-    planId: String,
-    uid: String
-) {
-    // State để lưu các mô tả đã cập nhật cho từng activity
-    val updatedDescriptions = remember {
-        mutableStateOf(dayPlan.activities?.map { it.description } ?: emptyList())
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-    ) {
-        Text("Chỉnh sửa Ngày ${dayIndex + 1}", style = MaterialTheme.typography.titleLarge)
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Duyệt qua tất cả activities và cho phép chỉnh sửa mô tả của từng activity
-        dayPlan.activities?.forEachIndexed { index, activity ->
-            OutlinedTextField(
-                value = updatedDescriptions.value.getOrElse(index) { activity.description },
-                onValueChange = { updatedDescription ->
-                    updatedDescriptions.value = updatedDescriptions.value.toMutableList().apply {
-                        this[index] = updatedDescription
+            Button(
+                onClick = {
+                    planViewModel.addDayToPlan(uid, planId) { newDayIndex ->
+                        navController.navigate("editDay/$planId/$uid/$newDayIndex")
                     }
                 },
-                label = { Text("Mô tả hoạt động ${index + 1}") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = false
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = {
-                val updatedActivities = dayPlan.activities.mapIndexed { index, activity ->
-                    activity.copy(description = updatedDescriptions.value.getOrElse(index) { activity.description })
-                }
-
-                val updatedDayPlan = dayPlan.copy(activities = updatedActivities)
-
-                Log.d("EditDayBottomSheet", "Updated DayPlan: $updatedActivities")
-                Log.d("EditDayBottomSheet", "Updated DayPlan: $updatedDayPlan")
-
-                // Gọi lại fetch dữ liệu sau khi lưu
-                planViewModel.updateDayPlan(
-                    uid = uid,
-                    planId = planId,
-                    dayIndex = dayIndex,
-                    updatedDayPlan = updatedDayPlan
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+                    .height(48.dp),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.secondary)
+            ) {
+                Text(
+                    text = "Thêm ngày mới",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White
                 )
-
-                planViewModel.fetchPlanByIdFromFirebase(uid, planId)
-
-                onClose()
-            },
-            modifier = Modifier.align(Alignment.End)
-        ) {
-            Text("Lưu")
-        }
-
-
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun EditPlanScreen(
-    navController: NavHostController,
-    planId: String,
-    planViewModel: PlanViewModel,
-    authViewModel: AuthViewModel
-) {
-    val authState by authViewModel.authState.collectAsState()
-    val planState by planViewModel.planState.collectAsState()
-    val user = (authState as? AuthState.UserLoggedIn)?.user
-
-    var destination by remember { mutableStateOf("") }
-    var startDate by remember { mutableStateOf("") }
-    var endDate by remember { mutableStateOf("") }
-
-    LaunchedEffect(planId) {
-        if (user != null) {
-            planViewModel.fetchPlanByIdFromFirebase(user.uid, planId)
-        }
-    }
-
-    when (planState) {
-        is PlanUiState.Loading -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Đang tải...")
             }
+
         }
 
-        is PlanUiState.Success -> {
-            val plan = (planState as PlanUiState.Success).plan
-            if (plan is PlanResultDb) {
-                if (destination.isEmpty()) {
-                    destination = plan.destination
-                    startDate = plan.itinerary.startDate
-                    endDate = plan.itinerary.endDate
-                }
 
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = { Text("Chỉnh sửa kế hoạch") },
-                            navigationIcon = {
-                                IconButton(onClick = { navController.popBackStack() }) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = "Quay lại"
-                                    )
-                                }
-                            }
+    }
+
+    // Cảnh báo xác nhận xóa ngày
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Xóa ngày") },
+            text = { Text("Bạn chắc chắn muốn xóa ngày ${dayIndexToDelete + 1}?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        Log.d(
+                            "PlanDetailContent",
+                            "PlanDetailContent: $dayIndexToDelete, $planId, $uid"
                         )
-                    },
-                    content = { paddingValues ->
-                        Column(
-                            modifier = Modifier
-                                .padding(paddingValues)
-                                .padding(16.dp)
-                                .verticalScroll(rememberScrollState())
-                        ) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                elevation = CardDefaults.cardElevation(4.dp)
-                            ) {
-                                Column(Modifier.padding(16.dp)) {
-                                    Text(
-                                        "Thông tin kế hoạch",
-                                        style = MaterialTheme.typography.titleLarge
-                                    )
+                        planViewModel.deleteDayFromPlan(
+                            dayIndexToDelete,
+                            planId,
+                            uid,
+                            navController
+                        )
 
-                                    Spacer(Modifier.height(12.dp))
-
-                                    OutlinedTextField(
-                                        value = destination,
-                                        onValueChange = { destination = it },
-                                        label = { Text("Điểm đến") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true,
-                                        leadingIcon = {
-                                            Icon(Icons.Default.Place, contentDescription = null)
-                                        }
-                                    )
-
-                                    Spacer(Modifier.height(12.dp))
-
-                                    OutlinedTextField(
-                                        value = startDate,
-                                        onValueChange = { startDate = it },
-                                        label = { Text("Ngày bắt đầu") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true,
-                                        leadingIcon = {
-                                            Icon(Icons.Default.DateRange, contentDescription = null)
-                                        }
-                                    )
-
-                                    Spacer(Modifier.height(12.dp))
-
-                                    OutlinedTextField(
-                                        value = endDate,
-                                        onValueChange = { endDate = it },
-                                        label = { Text("Ngày kết thúc") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true,
-                                        leadingIcon = {
-                                            Icon(Icons.Default.DateRange, contentDescription = null)
-                                        }
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.height(24.dp))
-
-                            Button(
-                                onClick = {
-                                    val updatedPlan = plan.copy(
-                                        destination = destination,
-                                        itinerary = plan.itinerary.copy(
-                                            startDate = startDate,
-                                            endDate = endDate
-                                        )
-                                    )
-                                    if (user != null) {
-                                        planViewModel.updatePlanToFirebase(user.uid,
-                                            updatedPlan,
-                                            planId,
-                                            onSuccess = {
-                                                navController.popBackStack()
-                                                planViewModel.fetchPlanByIdFromFirebase(
-                                                    user.uid,
-                                                    planId
-                                                )
-                                            })
-//                                        navController.popBackStack()
-                                    }
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("Lưu thay đổi", style = MaterialTheme.typography.titleMedium)
-                            }
-                        }
+                        showDeleteDialog = false
                     }
-                )
+                ) {
+                    Text("Xóa", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteDialog = false }
+                ) {
+                    Text("Hủy")
+                }
             }
-        }
-
-        is PlanUiState.Error -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Có lỗi xảy ra. Vui lòng thử lại.", color = Color.Red)
-            }
-        }
-
-        else -> {}
+        )
     }
+
+
 }
+
+
+
+
+
+
 
 

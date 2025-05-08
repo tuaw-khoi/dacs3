@@ -1,6 +1,7 @@
 package com.example.doancoso.presentation.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -8,15 +9,19 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.doancoso.data.models.PlanResultDb
 import com.example.doancoso.data.remote.ApiClient
 import com.example.doancoso.data.remote.PlanService
 import com.example.doancoso.data.repository.FirebaseService
 import com.example.doancoso.data.repository.PlanRepository
 import com.example.doancoso.domain.AuthViewModel
 import com.example.doancoso.domain.AuthViewModelFactory
+import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
 import com.example.doancoso.domain.factory.PlanViewModelFactory
 import com.example.doancoso.domain.preferences.UserPreferences
+import com.example.doancoso.presentation.ui.plan.EditDayScreen
+import com.example.doancoso.presentation.ui.plan.EditPlanScreen
 
 sealed class Screen(val route: String) {
     data object Login : Screen("login")
@@ -108,6 +113,29 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 authViewModel = authViewModel
             )
         }
+
+        composable("editDay/{planId}/{uid}/{dayIndex}") { backStackEntry ->
+            val planId = backStackEntry.arguments?.getString("planId") ?: ""
+            val uid = backStackEntry.arguments?.getString("uid") ?: ""
+            val dayIndex = backStackEntry.arguments?.getString("dayIndex")?.toIntOrNull() ?: 0
+
+            // Lấy kế hoạch từ ViewModel (hoặc từ Firebase)
+            val planState = planViewModel.planState.collectAsState().value
+            val plan = (planState as? PlanUiState.Success)?.plan as? PlanResultDb
+
+            if (plan != null) {
+                EditDayScreen(
+                    dayIndex = dayIndex,
+                    planId = planId,
+                    uid = uid,
+                    planViewModel = planViewModel,
+                    navController = navController,
+                    plan = plan
+                )
+            }
+
+        }
+
 
 
 

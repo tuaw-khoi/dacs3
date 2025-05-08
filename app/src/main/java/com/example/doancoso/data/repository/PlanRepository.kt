@@ -1,5 +1,6 @@
 package com.example.doancoso.data.repository
 
+import android.content.Context
 import android.util.Log
 import com.example.doancoso.data.models.DayPlanDb
 import com.example.doancoso.data.models.DestinationDetails
@@ -42,13 +43,6 @@ class PlanRepository(private val api: PlanService, private val firebaseService: 
         return firebaseService.updatePlan(uid, updatedPlan, planId)
     }
 
-
-//    suspend fun updateDayPlan(uid: String, planId: String, dayIndex: Int, updatedDayPlan: DayPlanDb) {
-//        firebaseService.updateDayPlan(uid, planId, dayIndex, updatedDayPlan)
-//
-//    }
-
-    // PlanRepository
     suspend fun updateDayPlan(
         uid: String,
         planId: String,
@@ -56,21 +50,46 @@ class PlanRepository(private val api: PlanService, private val firebaseService: 
         updatedDayPlan: DayPlanDb
     ): Result<Unit> {
         return try {
-            firebaseService.updateDayPlan(
-                uid,
-                planId,
-                dayIndex,
-                updatedDayPlan
-            )
+            firebaseService.updateDayPlan(uid, planId, dayIndex, updatedDayPlan)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteActivity(
+        dayIndex: Int,
+        activityIndex: Int,
+        planId: String,
+        uid: String
+    ): Result<Unit> {
+        return firebaseService.deleteActivityFromPlan(uid, planId, dayIndex, activityIndex)
+    }
+
+    suspend fun deleteDayFromPlan(
+        dayIndex: Int,
+        planId: String,
+        uid: String
+    ): Result<Unit> {
+        return try {
+            firebaseService.deleteDayFromPlan(uid, planId, dayIndex)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addDayToPlan(uid: String, planId: String): Result<Int> {
+        return firebaseService.addDayToPlan(uid, planId)
+    }
+
+    suspend fun deletePlan(uid: String, planId: String): Result<Unit> {
+        return try {
+            firebaseService.deletePlan(uid, planId)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-    // PlanRepository
-    suspend fun deleteActivity(dayIndex: Int, activityIndex: Int, planId: String, uid: String): Result<Unit> {
-        return firebaseService.deleteActivityFromPlan(uid, planId, dayIndex, activityIndex)
-    }
+
 
 
 }
