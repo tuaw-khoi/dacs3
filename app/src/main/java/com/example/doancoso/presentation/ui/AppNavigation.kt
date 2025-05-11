@@ -18,10 +18,12 @@ import com.example.doancoso.domain.AuthViewModel
 import com.example.doancoso.domain.AuthViewModelFactory
 import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
+import com.example.doancoso.domain.ThemeViewModel
 import com.example.doancoso.domain.factory.PlanViewModelFactory
 import com.example.doancoso.domain.preferences.UserPreferences
 import com.example.doancoso.presentation.ui.plan.EditDayScreen
 import com.example.doancoso.presentation.ui.plan.EditPlanScreen
+import com.example.doancoso.presentation.ui.profile.EditProfileScreen
 
 sealed class Screen(val route: String) {
     data object Login : Screen("login")
@@ -30,11 +32,15 @@ sealed class Screen(val route: String) {
     data object Setting : Screen("setting")
     data object SearchPlan : Screen("searchPlan")
     data object Plan : Screen("plan")
+    data object EditProfile : Screen("editProfile")
 
 }
 
 @Composable
-fun AppNavigation(navController: NavHostController = rememberNavController()) {
+fun AppNavigation(
+    navController: NavHostController = rememberNavController(),
+    themeViewModel: ThemeViewModel,
+) {
     val context = LocalContext.current
     val userPreferences = remember { UserPreferences(context) }
     val firebaseService = remember { FirebaseService() }
@@ -42,7 +48,7 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
     val authViewModel: AuthViewModel = viewModel(
         factory = AuthViewModelFactory(userPreferences, firebaseService)
     )
-    authViewModel.clearCache()
+//    authViewModel.clearCache()
 
     val planService = remember { ApiClient.retrofit.create(PlanService::class.java) }
     val planRepository = remember { PlanRepository(planService, firebaseService) }
@@ -63,7 +69,11 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
             HomeScreen(navController, authViewModel, planViewModel)
         }
         composable(Screen.Setting.route) {
-            SettingScreen(navController = navController, authViewModel = authViewModel)
+            SettingScreen(
+                navController = navController,
+                authViewModel = authViewModel,
+                themeViewModel = themeViewModel
+            )
         }
         composable(Screen.SearchPlan.route) {
             SearchPlanScreen(
@@ -77,6 +87,12 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 navController = navController,
                 authViewModel = authViewModel,
                 planViewModel = planViewModel
+            )
+        }
+        composable(Screen.EditProfile.route) {
+            EditProfileScreen(
+                navController = navController,
+                authViewModel = authViewModel
             )
         }
         composable(
@@ -135,9 +151,6 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
             }
 
         }
-
-
-
 
 
     }

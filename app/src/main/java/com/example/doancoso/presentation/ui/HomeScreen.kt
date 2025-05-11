@@ -4,10 +4,40 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -18,6 +48,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavHostController
 import com.example.doancoso.R
 import com.example.doancoso.domain.AuthState
@@ -25,9 +56,14 @@ import com.example.doancoso.domain.AuthViewModel
 import com.example.doancoso.domain.PlanViewModel
 import com.example.doancoso.domain.preferences.UserPreferences
 
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, planViewModel: PlanViewModel ) {
+fun HomeScreen(
+    navController: NavHostController,
+    authViewModel: AuthViewModel,
+    planViewModel: PlanViewModel
+) {
     val authState by authViewModel.authState.collectAsState()
     val context = LocalContext.current
     val userPreferences = UserPreferences(context)
@@ -36,6 +72,11 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, p
 
     val startCalendar = remember { java.util.Calendar.getInstance() }
     val endCalendar = remember { java.util.Calendar.getInstance() }
+
+    var chatInput by remember { mutableStateOf("") }
+    var chatResponse by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var isDialogOpen by remember { mutableStateOf(false) }
 
     val startDatePickerDialog = remember {
         android.app.DatePickerDialog(
@@ -47,7 +88,11 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, p
 
                 if (endDate.isNotEmpty() && selectedStart.after(endCalendar)) {
                     // Ngày bắt đầu sau ngày kết thúc => không cho phép
-                    Toast.makeText(context, "Ngày bắt đầu không được sau ngày kết thúc!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Ngày bắt đầu không được sau ngày kết thúc!",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 } else {
                     startCalendar.set(year, month, dayOfMonth)
                     startDate = "$dayOfMonth/${month + 1}/$year"
@@ -69,7 +114,11 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, p
 
                 if (startDate.isNotEmpty() && selectedEnd.before(startCalendar)) {
                     // Ngày kết thúc trước ngày bắt đầu => không cho phép
-                    Toast.makeText(context, "Ngày kết thúc không được trước ngày bắt đầu!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Ngày kết thúc không được trước ngày bắt đầu!",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 } else {
                     endCalendar.set(year, month, dayOfMonth)
                     endDate = "$dayOfMonth/${month + 1}/$year"
@@ -82,13 +131,15 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, p
     }
 
 
-
     val user = (authState as? AuthState.UserLoggedIn)?.user
 
     // Điều hướng về login nếu chưa đăng nhập
     LaunchedEffect(authState) {
         Log.d("AuthDebug", "AuthState hiện tại: $authState ")
-        Log.d("AuthDebug", "UserPreferences - Name: ${userPreferences.userNameFlow}, Email: ${userPreferences.userEmailFlow}")
+        Log.d(
+            "AuthDebug",
+            "UserPreferences - Name: ${userPreferences.userNameFlow}, Email: ${userPreferences.userEmailFlow}"
+        )
 
         if (authState is AuthState.Idle || user == null) {
             Log.d("AuthDebug", "Chưa đăng nhập, chuyển về Login")
@@ -111,10 +162,19 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, p
     Column(modifier = Modifier.fillMaxSize()) {
         // Thanh AppBar
         TopAppBar(
-            title = { Text(text = "Xin chào, ${user.name}!", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+            title = {
+                Text(
+                    text = "Xin chào, ${user.name}!",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
             actions = {
                 IconButton(onClick = { /* TODO: Xử lý thông báo */ }) {
-                    Icon(painter = painterResource(id = R.drawable.notification), contentDescription = "Thông báo")
+                    Icon(
+                        painter = painterResource(id = R.drawable.notification),
+                        contentDescription = "Thông báo"
+                    )
                 }
             }
         )
@@ -123,7 +183,9 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, p
         Image(
             painter = painterResource(id = R.drawable.homebanner),
             contentDescription = "Hình ảnh du lịch",
-            modifier = Modifier.fillMaxWidth().height(230.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(230.dp),
             contentScale = ContentScale.Crop
         )
 
@@ -145,10 +207,17 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, p
                             )
                             navController.navigate(Screen.SearchPlan.route)
                         } else {
-                            Toast.makeText(context, "Vui lòng điền đầy đủ thông tin", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "Vui lòng điền đầy đủ thông tin",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }) {
-                        Icon(painter = painterResource(id = R.drawable.search), contentDescription = null)
+                        Icon(
+                            painter = painterResource(id = R.drawable.search),
+                            contentDescription = null
+                        )
                     }
                 }
             )
@@ -206,7 +275,9 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, p
             Text(
                 text = "Chưa có kế hoạch nào. Hãy khám phá ngay!",
                 color = Color.Gray,
-                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 16.dp)
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 16.dp)
             )
         } else {
             // TODO: Hiển thị danh sách kế hoạch du lịch ở đây
@@ -226,35 +297,134 @@ fun HomeScreen(navController: NavHostController, authViewModel: AuthViewModel, p
             DestinationCard(imageRes = R.drawable.indonesia, title = "INDONESIA")
             DestinationCard(imageRes = R.drawable.japan, title = "JAPAN")
         }
+//        Column(modifier = Modifier.fillMaxSize()) {
+//            // IconButton to open the dialog
+//            IconButton(onClick = { isDialogOpen = true }) {
+//                Icon(Icons.Default.Info, contentDescription = "Open Gemini Assistant")
+//            }
+//
+//            // Show Dialog when isDialogOpen is true
+//            if (isDialogOpen) {
+//                GeminiDialog(
+//                    chatInput = chatInput,
+//                    onChatInputChange = { chatInput = it },
+//                    onSubmit = {
+//                        if (chatInput.isNotBlank()) {
+//                            isLoading = true
+//                            planViewModel.askGemini(chatInput) { result ->
+//                                chatResponse = result
+//                                isLoading = false
+//                            }
+//                        }
+//                    },
+//                    chatResponse = chatResponse,
+//                    isLoading = isLoading,
+//                    onDismiss = { isDialogOpen = false }
+//                )
+//            }
+//        }
+//
 
         Spacer(modifier = Modifier.weight(1f))
 
         // Thanh điều hướng dưới cùng
         BottomAppBar(containerColor = Color.White) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-                IconButton(onClick = {  navController.navigate("home") } ) {
-                    Icon(painter = painterResource(id = R.drawable.homeicon), contentDescription = "Trang chủ")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                IconButton(onClick = { navController.navigate("home") }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.homeicon),
+                        contentDescription = "Trang chủ"
+                    )
                 }
-                Divider(modifier = Modifier.height(40.dp).width(1.dp), color = Color.Gray)
+                Divider(modifier = Modifier
+                    .height(40.dp)
+                    .width(1.dp), color = Color.Gray)
                 IconButton(onClick = { navController.navigate("plan") }) {
-                    Icon(painter = painterResource(id = R.drawable.planicon), contentDescription = "Kế hoạch")
+                    Icon(
+                        painter = painterResource(id = R.drawable.planicon),
+                        contentDescription = "Kế hoạch"
+                    )
                 }
-                Divider(modifier = Modifier.height(40.dp).width(1.dp), color = Color.Gray)
+                Divider(modifier = Modifier
+                    .height(40.dp)
+                    .width(1.dp), color = Color.Gray)
                 IconButton(onClick = {
                     navController.navigate("setting")
                 }) {
-                    Icon(painter = painterResource(id = R.drawable.setting), contentDescription = "Cài đặt")
+                    Icon(
+                        painter = painterResource(id = R.drawable.setting),
+                        contentDescription = "Cài đặt"
+                    )
                 }
             }
         }
     }
 }
 
+
+@Composable
+fun GeminiDialog(
+    chatInput: String,
+    onChatInputChange: (String) -> Unit,
+    onSubmit: () -> Unit,
+    chatResponse: String,
+    isLoading: Boolean,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Trợ lý du lịch Gemini", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+
+                OutlinedTextField(
+                    value = chatInput,
+                    onValueChange = onChatInputChange,
+                    label = { Text("Hỏi về điểm đến...") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = onSubmit,
+                    enabled = !isLoading
+                ) {
+                    Text("Hỏi Gemini")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (isLoading) {
+                    CircularProgressIndicator()
+                } else if (chatResponse.isNotEmpty()) {
+                    Text("Gemini trả lời:", fontWeight = FontWeight.Bold)
+                    Text(chatResponse)
+                }
+            }
+        }
+    }
+}
+
+
+
+
 @Composable
 fun DestinationCard(imageRes: Int, title: String) {
     Card(
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.size(150.dp).shadow(8.dp)
+        modifier = Modifier
+            .size(150.dp)
+            .shadow(8.dp)
     ) {
         Box {
             Image(
@@ -264,10 +434,18 @@ fun DestinationCard(imageRes: Int, title: String) {
                 contentScale = ContentScale.Crop
             )
             Box(
-                modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.6f))
-                    .padding(8.dp).align(Alignment.BottomCenter)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(8.dp)
+                    .align(Alignment.BottomCenter)
             ) {
-                Text("\u2B50 $title", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                Text(
+                    "\u2B50 $title",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color.White
+                )
             }
         }
     }

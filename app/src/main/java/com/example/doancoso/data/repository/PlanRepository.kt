@@ -1,7 +1,5 @@
 package com.example.doancoso.data.repository
 
-import android.content.Context
-import android.util.Log
 import com.example.doancoso.data.models.DayPlanDb
 import com.example.doancoso.data.models.DestinationDetails
 import com.example.doancoso.data.models.PlanResult
@@ -90,6 +88,7 @@ class PlanRepository(private val api: PlanService, private val firebaseService: 
         }
     }
 
-
-
+//    suspend fun askGeminiFromRepo(prompt: String): String {
+//        return firebaseService.askGemini(prompt)
+//    }
 }

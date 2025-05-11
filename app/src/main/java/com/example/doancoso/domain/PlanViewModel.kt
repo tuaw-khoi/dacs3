@@ -1,6 +1,5 @@
 package com.example.doancoso.domain
 
-import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,8 +41,12 @@ class PlanViewModel(
     private val _destinationState = MutableStateFlow<DestinationUiState>(DestinationUiState.Idle)
     val destinationState: StateFlow<DestinationUiState> = _destinationState
 
-    private val _linkState = MutableStateFlow<String?>(null)
-    val linkState: StateFlow<String?> = _linkState
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
+    private val _chatResponse = MutableStateFlow("")
+    val chatResponse: StateFlow<String> = _chatResponse
+
 
     fun fetchPlans(destination: String, startDate: String, endDate: String) {
         _planState.value = PlanUiState.Loading
@@ -262,8 +265,20 @@ class PlanViewModel(
         }
     }
 
-
-
+//    fun askGemini(prompt: String, onResult: (String) -> Unit) {
+//        _isLoading.value = true
+//        viewModelScope.launch {
+//            try {
+//                // Gọi phương thức từ repository để lấy kết quả từ Gemini API
+//                val result = planRepository.askGeminiFromRepo(prompt)
+//                _isLoading.value = false
+//                onResult(result) // Trả kết quả qua callback
+//            } catch (e: Exception) {
+//                _isLoading.value = false
+//                onResult("Có lỗi xảy ra: ${e.localizedMessage}")
+//            }
+//        }
+//    }
 }
 
 

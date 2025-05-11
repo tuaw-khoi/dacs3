@@ -1,21 +1,15 @@
 package com.example.doancoso.data.repository
 
-import android.content.Context
 import android.net.Uri
 import android.util.Log
-import android.widget.Toast
 import com.example.doancoso.data.models.DayPlanDb
 import com.example.doancoso.data.models.ItineraryDb
 import com.example.doancoso.data.models.PlanResult
 import com.example.doancoso.data.models.PlanResultDb
 import com.example.doancoso.data.models.User
-import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ktx.getValue
-import com.google.firebase.dynamiclinks.DynamicLink
-import com.google.firebase.dynamiclinks.FirebaseDynamicLinks
-
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -447,6 +441,23 @@ class FirebaseService {
         }
     }
 
+    //firebaseService
+    fun updateUserProfile(
+        uid: String,
+        updatedUser: User,
+        onComplete: (Boolean, String?) -> Unit
+    ) {
+        val userRef = database.child(uid)
+
+        userRef.setValue(updatedUser)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    onComplete(true, null) // Success
+                } else {
+                    onComplete(false, task.exception?.message) // Failure
+                }
+            }
+    }
 
 
 }

@@ -54,7 +54,6 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation("androidx.datastore:datastore-preferences:1.1.4")
     implementation("androidx.datastore:datastore:1.1.4")
-    implementation ("androidx.lifecycle:lifecycle-livedata-ktx:2.8.7")
 
 
 
@@ -67,7 +66,6 @@ dependencies {
     implementation(libs.androidx.credentials.play.services.auth)
     implementation(libs.googleid)
 
-    implementation ("com.google.firebase:firebase-dynamic-links:21.1.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -77,8 +75,12 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
 
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation ("com.squareup.retrofit2:retrofit:2.9.0")
     implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.6.0")
+    implementation ("io.coil-kt:coil-compose:2.4.0")
+//
+//    implementation("org.json:json:20210307")
+//    implementation("com.squareup.okhttp3:okhttp:4.10.0")
 }
 

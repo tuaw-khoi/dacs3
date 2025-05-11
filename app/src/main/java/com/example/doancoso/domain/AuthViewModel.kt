@@ -7,7 +7,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.doancoso.data.models.User
 import com.example.doancoso.data.repository.FirebaseService
 import com.example.doancoso.domain.preferences.UserPreferences
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
 class AuthViewModel(
@@ -105,6 +108,35 @@ class AuthViewModel(
             userPreferences.clearUser()
         }
     }
+
+    fun updateUserProfile(name: String) {
+        _user.value?.let { currentUser ->
+            val updatedUser = currentUser.copy(name = name) // Chỉ thay đổi tên
+
+            _authState.value = AuthState.Loading
+
+            viewModelScope.launch {
+                firebaseService.updateUserProfile(updatedUser.uid, updatedUser) { success, error ->
+                    if (success) {
+                        _user.value = updatedUser
+                        _authState.value = AuthState.UserLoggedIn(updatedUser)
+
+                        viewModelScope.launch {
+                            // Lưu thông tin người dùng vào SharedPreferences (không thay đổi email)
+                            userPreferences.saveUser(
+                                uid = updatedUser.uid,
+                                name = updatedUser.name,
+                                email = updatedUser.email // Email không thay đổi
+                            )
+                        }
+                    } else {
+                        _authState.value = AuthState.Error(error ?: "Cập nhật thông tin thất bại")
+                    }
+                }
+            }
+        }
+    }
+
 }
 
 sealed class AuthState {
