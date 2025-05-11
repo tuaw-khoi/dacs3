@@ -1,9 +1,14 @@
 package com.example.doancoso.presentation.ui
 
+import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -14,6 +19,7 @@ import com.example.doancoso.data.remote.ApiClient
 import com.example.doancoso.data.remote.PlanService
 import com.example.doancoso.data.repository.FirebaseService
 import com.example.doancoso.data.repository.PlanRepository
+import com.example.doancoso.domain.AuthState
 import com.example.doancoso.domain.AuthViewModel
 import com.example.doancoso.domain.AuthViewModelFactory
 import com.example.doancoso.domain.PlanUiState
@@ -24,6 +30,7 @@ import com.example.doancoso.domain.preferences.UserPreferences
 import com.example.doancoso.presentation.ui.plan.EditDayScreen
 import com.example.doancoso.presentation.ui.plan.EditPlanScreen
 import com.example.doancoso.presentation.ui.profile.EditProfileScreen
+import android.util.Log
 
 sealed class Screen(val route: String) {
     data object Login : Screen("login")
@@ -38,26 +45,19 @@ sealed class Screen(val route: String) {
 
 @Composable
 fun AppNavigation(
-    navController: NavHostController = rememberNavController(),
+    navController: NavHostController,
     themeViewModel: ThemeViewModel,
+    authViewModel: AuthViewModel,
+    deepLinkPlanId: String? = null
 ) {
     val context = LocalContext.current
-    val userPreferences = remember { UserPreferences(context) }
     val firebaseService = remember { FirebaseService() }
-
-    val authViewModel: AuthViewModel = viewModel(
-        factory = AuthViewModelFactory(userPreferences, firebaseService)
-    )
-//    authViewModel.clearCache()
-
     val planService = remember { ApiClient.retrofit.create(PlanService::class.java) }
     val planRepository = remember { PlanRepository(planService, firebaseService) }
+    val planViewModel: PlanViewModel = viewModel(factory = PlanViewModelFactory(planRepository))
+    val authState by authViewModel.authState.collectAsState()
 
-    val planViewModel: PlanViewModel = viewModel(
-        factory = PlanViewModelFactory(planRepository)
-    )
-
-
+    // UI điều hướng
     NavHost(navController = navController, startDestination = Screen.Login.route) {
         composable(Screen.Login.route) {
             LoginScreen(navController, authViewModel)
@@ -69,90 +69,75 @@ fun AppNavigation(
             HomeScreen(navController, authViewModel, planViewModel)
         }
         composable(Screen.Setting.route) {
-            SettingScreen(
-                navController = navController,
-                authViewModel = authViewModel,
-                themeViewModel = themeViewModel
-            )
+            SettingScreen(navController, authViewModel, themeViewModel)
         }
         composable(Screen.SearchPlan.route) {
-            SearchPlanScreen(
-                navController = navController,
-                authViewModel = authViewModel,
-                planViewModel = planViewModel
-            )
+            SearchPlanScreen(navController, authViewModel, planViewModel)
         }
         composable(Screen.Plan.route) {
-            PlanScreen(
-                navController = navController,
-                authViewModel = authViewModel,
-                planViewModel = planViewModel
-            )
+            PlanScreen(navController, authViewModel, planViewModel)
         }
         composable(Screen.EditProfile.route) {
-            EditProfileScreen(
-                navController = navController,
-                authViewModel = authViewModel
-            )
+            EditProfileScreen(navController, authViewModel)
         }
-        composable(
-            "planDetail/{planId}"
-        ) { backStackEntry ->
-            val planId = backStackEntry.arguments?.getString("planId") ?: ""
-            PlanDetailScreen(
-                navController = navController,
-                authViewModel = authViewModel,
-                planId = planId,
-                planViewModel = planViewModel
-            )
+        composable("planDetail/{planId}") { backStackEntry ->
+            val planId = backStackEntry.arguments?.getString("planId")
+            if (planId != null) {
+                PlanDetailScreen(
+                    planId = planId,
+                    navController = navController,
+                    authViewModel = authViewModel,
+                    planViewModel = planViewModel
+                )
+            }
         }
-
+        composable("planDetailOwner/{planId}") { backStackEntry ->
+            val planId = backStackEntry.arguments?.getString("planId")
+            if (planId != null) {
+                PlanDetailOwnerScreen(
+                    planId = planId,
+                    navController = navController,
+                    authViewModel = authViewModel,
+                    planViewModel = planViewModel
+                )
+            }
+        }
         composable("destinationDetail/{destinationName}") { backStackEntry ->
             val destinationName = backStackEntry.arguments?.getString("destinationName") ?: ""
-            // Fetch destination details based on destinationName
-            DestinationDetailScreen(
-                navController = navController,
-                authViewModel = authViewModel,
-                destination = destinationName,
-                planViewModel = planViewModel
-            )
+            DestinationDetailScreen(navController, authViewModel, destinationName, planViewModel)
         }
-
-
-
         composable("editPlan/{planId}") { backStackEntry ->
             val planId = backStackEntry.arguments?.getString("planId") ?: ""
-            EditPlanScreen(
-                navController = navController,
-                planId = planId,
-                planViewModel = planViewModel,
-                authViewModel = authViewModel
-            )
+            EditPlanScreen(navController, planId, planViewModel, authViewModel)
         }
-
         composable("editDay/{planId}/{uid}/{dayIndex}") { backStackEntry ->
             val planId = backStackEntry.arguments?.getString("planId") ?: ""
             val uid = backStackEntry.arguments?.getString("uid") ?: ""
             val dayIndex = backStackEntry.arguments?.getString("dayIndex")?.toIntOrNull() ?: 0
-
-            // Lấy kế hoạch từ ViewModel (hoặc từ Firebase)
             val planState = planViewModel.planState.collectAsState().value
             val plan = (planState as? PlanUiState.Success)?.plan as? PlanResultDb
-
             if (plan != null) {
-                EditDayScreen(
-                    dayIndex = dayIndex,
-                    planId = planId,
-                    uid = uid,
-                    planViewModel = planViewModel,
-                    navController = navController,
-                    plan = plan
-                )
+                EditDayScreen(dayIndex, planId, uid, planViewModel, navController, plan)
             }
-
         }
+    }
 
-
+    // Điều hướng tới planDetail nếu có deep link sau khi đăng nhập
+    LaunchedEffect(authState, deepLinkPlanId) {
+        if (authState is AuthState.UserLoggedIn) {
+            val planId = deepLinkPlanId ?: authViewModel.pendingDeepLinkPlanId
+            if (!planId.isNullOrEmpty()) {
+                kotlinx.coroutines.delay(100) // ⏳ Chờ NavHost dựng xong
+                try {
+                    navController.navigate("planDetailOwner/$planId") {
+                        popUpTo(Screen.Login.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                } catch (e: Exception) {
+                    Log.e("AppNavigation", "Navigation failed", e)
+                }
+            }
+        }
     }
 }
 

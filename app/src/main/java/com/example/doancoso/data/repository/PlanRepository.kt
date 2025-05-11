@@ -88,6 +88,11 @@ class PlanRepository(private val api: PlanService, private val firebaseService: 
         }
     }
 
+    // Thêm hàm này để lấy userId chủ của plan
+    fun getUserIdOfPlan(planId: String, onResult: (String?) -> Unit) {
+        firebaseService.getUserIdOfPlan(planId, onResult)
+    }
+
 //    suspend fun askGeminiFromRepo(prompt: String): String {
 //        return firebaseService.askGemini(prompt)
 //    }

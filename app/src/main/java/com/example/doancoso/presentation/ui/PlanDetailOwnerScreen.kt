@@ -52,7 +52,7 @@ import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
 
 @Composable
-fun PlanDetailScreen(
+fun PlanDetailOwnerScreen(
     navController: NavHostController,
     authViewModel: AuthViewModel,
     planId: String,
@@ -63,7 +63,11 @@ fun PlanDetailScreen(
     val user = (authState as? AuthState.UserLoggedIn)?.user
     val context = LocalContext.current
 
+    val isFromDeepLink = authViewModel.pendingDeepLinkUid != null && authViewModel.pendingDeepLinkPlanId != null
+    var currentUid = authViewModel.pendingDeepLinkUid
 
+    Log.d("PlanDetailScreen", ": $currentUid")
+    // Fetch kế hoạch từ Firebase
     LaunchedEffect(planId) {
         Log.d("PlanDetailScreen", "LaunchedEffect triggered with planId: $planId")
         if (authState is AuthState.Idle || user == null) {
@@ -75,7 +79,7 @@ fun PlanDetailScreen(
             }
         } else {
             Log.d("PlanDetailScreen", "Fetching plan details for planId: $planId")
-            planViewModel.fetchPlanByIdFromFirebase(user.uid, planId)
+            planViewModel.fetchPlanByIdFromFirebase(currentUid.toString(), planId)
         }
     }
 
@@ -93,12 +97,14 @@ fun PlanDetailScreen(
             if (plan is PlanResultDb) {
                 if (user != null) {
                     // Truyền thêm ownerUserId (userId cha) vào PlanDetailContent
-                    PlanDetailContent(
+                    PlanDetailOwnerContent(
                         planDb = plan,
                         navController = navController,
                         planId = planId,
                         planViewModel = planViewModel,
+                        owner = currentUid.toString(),
                         userId = user.uid,
+                        isFromDeepLink = isFromDeepLink
                     )
 
                 }
@@ -159,12 +165,14 @@ fun PlanDetailScreen(
 }
 
 @Composable
-fun PlanDetailContent(
+fun PlanDetailOwnerContent(
     planDb: PlanResultDb,
     navController: NavHostController,
     planId: String,
     planViewModel: PlanViewModel,
+    owner: String,
     userId:String,
+    isFromDeepLink: Boolean
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var dayIndexToDelete by remember { mutableStateOf(-1) }
@@ -172,8 +180,13 @@ fun PlanDetailContent(
     val context = LocalContext.current
 
     // Sử dụng state để lưu quyền chỉnh sửa
-    var canEdit by remember { mutableStateOf(true) }
+    var canEdit by remember { mutableStateOf(false) }
 
+    // Kiểm tra quyền khi planId hoặc currentUid thay đổi
+    LaunchedEffect(planId, userId, isFromDeepLink) {
+        canEdit = (owner == userId) && !isFromDeepLink
+
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -321,7 +334,7 @@ fun PlanDetailContent(
 
                             // Nút chỉnh sửa ngày
                             TextButton(onClick = {
-                                navController.navigate("editDay/$planId/$userId/$index")
+                                navController.navigate("editDay/$planId/$owner/$index")
                             }) {
                                 Text("Chỉnh sửa ngày", color = MaterialTheme.colorScheme.primary)
                             }
@@ -385,7 +398,7 @@ fun PlanDetailContent(
                                         index,
                                         activityIndex,
                                         planId,
-                                        userId
+                                        owner
                                     )
                                 }
                             ) {
@@ -408,8 +421,8 @@ fun PlanDetailContent(
             if (canEdit) {
                 Button(
                     onClick = {
-                        planViewModel.addDayToPlan(userId, planId) { newDayIndex ->
-                            navController.navigate("editDay/$planId/$userId/$newDayIndex")
+                        planViewModel.addDayToPlan(owner, planId) { newDayIndex ->
+                            navController.navigate("editDay/$planId/$owner/$newDayIndex")
                         }
                     },
                     modifier = Modifier
@@ -441,7 +454,7 @@ fun PlanDetailContent(
                         planViewModel.deleteDayFromPlan(
                             dayIndexToDelete,
                             planId,
-                            userId,
+                            owner,
                             navController
                         )
                         showDeleteDialog = false
@@ -461,35 +474,35 @@ fun PlanDetailContent(
     }
 
     // Dialog xác nhận tham gia làm chủ sở hữu
-//    if (showJoinDialog) {
-//        AlertDialog(
-//            onDismissRequest = { showJoinDialog = false },
-//            title = { Text("Tham gia làm chủ sở hữu") },
-//            text = { Text("Bạn muốn trở thành chủ sở hữu kế hoạch này?") },
-//            confirmButton = {
-//                TextButton(
-//                    onClick = {
-//                        planViewModel.addOwnerToPlan(
-//                            planId = planId,
-//                            currentUid = userId,
-//                            ownerUid = userId,
-//                            onSuccess = {
-//                                showJoinDialog = false
-//                                Toast.makeText(context, "Đã thêm bạn làm chủ sở hữu!", Toast.LENGTH_SHORT).show()
-//                            },
-//                            onError = {
-//                                showJoinDialog = false
-//                                Toast.makeText(context, "Có lỗi: $it", Toast.LENGTH_SHORT).show()
-//                            }
-//                        )
-//                    }
-//                ) { Text("Đồng ý") }
-//            },
-//            dismissButton = {
-//                TextButton(onClick = { showJoinDialog = false }) { Text("Hủy") }
-//            }
-//        )
-//    }
+    if (showJoinDialog) {
+        AlertDialog(
+            onDismissRequest = { showJoinDialog = false },
+            title = { Text("Tham gia làm chủ sở hữu") },
+            text = { Text("Bạn muốn trở thành chủ sở hữu kế hoạch này?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        planViewModel.addOwnerToPlan(
+                            planId = planId,
+                            currentUid = owner,
+                            ownerUid = userId,
+                            onSuccess = {
+                                showJoinDialog = false
+                                Toast.makeText(context, "Đã thêm bạn làm chủ sở hữu!", Toast.LENGTH_SHORT).show()
+                            },
+                            onError = {
+                                showJoinDialog = false
+                                Toast.makeText(context, "Có lỗi: $it", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+                ) { Text("Đồng ý") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showJoinDialog = false }) { Text("Hủy") }
+            }
+        )
+    }
 }
 
 

@@ -1,5 +1,9 @@
 package com.example.doancoso.presentation.ui
 
+import android.R.string
+import android.content.Intent
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +53,8 @@ import com.example.doancoso.domain.AuthState
 import com.example.doancoso.domain.AuthViewModel
 import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 
 @Composable
 fun PlanScreen(
@@ -178,13 +184,15 @@ fun PlanScreen(
                                 plan = plan,
                                 onCardClick = { selectedPlan ->
                                     selectedPlan.uid?.let { planId ->
+                                        Log.d("AppNavigation", "Navigating to planDetail/$planId")
                                         navController.navigate("planDetail/$planId")
                                     }
                                 },
                                 onDeleteClick = { planToDelete ->
                                     selectedPlanToDelete = planToDelete
                                     showDeleteDialog = true
-                                }
+                                },
+                                planViewModel = planViewModel,userId = user?.uid.toString()
                             )
                         }
 
@@ -224,9 +232,13 @@ fun PlanScreen(
 
 @Composable
 fun PlanCards(
-    plan: PlanResult, onCardClick: (PlanResult) -> Unit,
-    onDeleteClick: (PlanResult) -> Unit
+    plan: PlanResult,
+    onCardClick: (PlanResult) -> Unit,
+    onDeleteClick: (PlanResult) -> Unit,
+    planViewModel: PlanViewModel,
+    userId:String
 ) {
+    val context = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -237,12 +249,42 @@ fun PlanCards(
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "📍 Điểm đến: ${plan.destination}",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "📍 Điểm đến: ${plan.destination}",
+                    fontSize = 22.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
+                Row {
+                    // Nút chia sẻ
+                    IconButton(onClick = {
+                        plan.uid?.let { planId ->
+                            planViewModel.createShareableLink(planId,userId) { link ->
+                                link?.let {
+                                    // Copy link hoặc mở share sheet
+                                    val sendIntent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_TEXT, it)
+                                        type = "text/plain"
+                                    }
+                                    val shareIntent = Intent.createChooser(sendIntent, null)
+                                    context.startActivity(shareIntent)
+                                } ?: run {
+                                    Toast.makeText(context, "Không tạo được link chia sẻ", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Chia sẻ kế hoạch")
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 

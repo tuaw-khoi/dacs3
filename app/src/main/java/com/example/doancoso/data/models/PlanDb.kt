@@ -6,6 +6,8 @@ data class PlanResultDb(
     var uid: String? = null,
     val destination: String = "", // "ho chi minh"
     val itinerary: ItineraryDb = ItineraryDb(),
+
+    val owners: List<String> = emptyList()
 ) : BasePlan
 
 data class ItineraryDb(

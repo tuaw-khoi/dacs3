@@ -1,5 +1,6 @@
 package com.example.doancoso.domain
 
+import android.system.Os.link
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,9 +10,17 @@ import com.example.doancoso.data.models.DestinationDetails
 import com.example.doancoso.data.models.PlanResult
 import com.example.doancoso.data.models.PlanResultDb
 import com.example.doancoso.data.repository.PlanRepository
+import com.google.firebase.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import android.net.Uri
+import com.google.firebase.dynamiclinks.DynamicLink
+import com.google.firebase.dynamiclinks.FirebaseDynamicLinks
+import com.google.firebase.dynamiclinks.ShortDynamicLink
+import com.google.firebase.dynamiclinks.ktx.shortLinkAsync
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.auth.FirebaseAuth
 
 interface BasePlan
 
@@ -47,6 +56,8 @@ class PlanViewModel(
     private val _chatResponse = MutableStateFlow("")
     val chatResponse: StateFlow<String> = _chatResponse
 
+    val currentUserId: String?
+        get() = FirebaseAuth.getInstance().currentUser?.uid
 
     fun fetchPlans(destination: String, startDate: String, endDate: String) {
         _planState.value = PlanUiState.Loading
@@ -279,6 +290,116 @@ class PlanViewModel(
 //            }
 //        }
 //    }
+
+
+    fun createShareableLink( planId: String,uid: String, onLinkCreated: (String?) -> Unit) {
+        val linkWithUid = Uri.parse("https://doancoso.com/plan?uid=$uid&planId=$planId")
+
+        val dynamicLink = FirebaseDynamicLinks.getInstance().createDynamicLink()
+            .setLink(linkWithUid)
+            .setDomainUriPrefix("https://doancoso.page.link")
+            .setAndroidParameters(
+                DynamicLink.AndroidParameters.Builder()
+                    .setMinimumVersion(1)
+                    .build()
+            )
+            .buildDynamicLink()
+
+        FirebaseDynamicLinks.getInstance().shortLinkAsync {
+            longLink = dynamicLink.uri
+        }.addOnSuccessListener { result ->
+            val shortLink = result.shortLink
+            onLinkCreated(shortLink.toString())
+        }.addOnFailureListener {
+            onLinkCreated(null)
+        }
+    }
+
+
+    fun addOwnerToPlan(planId: String, currentUid: String, ownerUid: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        _planState.value = PlanUiState.Loading
+
+        viewModelScope.launch {
+            try {
+                // Lấy kế hoạch hiện tại
+                val result = planRepository.getPlanById(currentUid, planId)
+                if (result.isSuccess) {
+                    val plan = result.getOrNull()
+                    if (plan is PlanResultDb) {
+                        val updatedOwners = plan.owners.toMutableList().apply {
+                            if (!contains(ownerUid)) add(ownerUid)
+                        }
+
+                        val updatedPlan = plan.copy(owners = updatedOwners)
+
+                        // Lưu lại kế hoạch với danh sách owner mới
+                        val updateResult = planRepository.updatePlan(currentUid, updatedPlan, planId)
+
+                        updateResult.onSuccess {
+                            _planState.value = PlanUiState.Success(updatedPlan)
+                            onSuccess()
+                        }.onFailure {
+                            _planState.value = PlanUiState.Error("Lỗi khi cập nhật owner: ${it.localizedMessage}")
+                            onError("Lỗi khi cập nhật owner: ${it.localizedMessage}")
+                        }
+                    } else {
+                        onError("Kế hoạch không đúng định dạng.")
+                    }
+                } else {
+                    onError("Không tìm thấy kế hoạch.")
+                }
+            } catch (e: Exception) {
+                _planState.value = PlanUiState.Error("Lỗi: ${e.localizedMessage}")
+                onError("Lỗi: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    // Lấy userId chủ (từ path cha)
+    fun getPlanOwnerId(planPath: String): String {
+        // planPath: "plans/{userId}/{planId}"
+        return planPath.split("/")[1]
+    }
+
+    // Lấy owner (từ trường owner trong plan)
+    fun getPlanOwner(planId: String, userId: String, onResult: (String?) -> Unit) {
+        val ref = FirebaseDatabase.getInstance().getReference("plans/$userId/$planId/owner")
+        ref.get().addOnSuccessListener { snapshot ->
+            onResult(snapshot.getValue(String::class.java))
+        }.addOnFailureListener {
+            onResult(null)
+        }
+    }
+
+    /**
+     * Kiểm tra user hiện tại có phải là chủ gốc hoặc chủ sở hữu của plan không
+     * @param planId: id của plan
+     * @param currentUserId: id user hiện tại
+     * @param onResult: callback trả về true nếu là chủ gốc hoặc chủ sở hữu, false nếu không
+     */
+    fun checkIsRootOwnerOrOwner(
+        rootOwnerId: String,
+        planId: String,
+        currentUserId: String,
+        onResult: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            val planResult = planRepository.getPlanById(rootOwnerId, planId)
+            if (planResult.isSuccess) {
+                val plan = planResult.getOrNull()
+                // currentUserId là rootOwner hoặc nằm trong danh sách owners
+                if (plan is PlanResultDb && (rootOwnerId == currentUserId || plan.owners.contains(currentUserId))) {
+                    onResult(true)
+                } else {
+                    onResult(false)
+                }
+            } else {
+                onResult(false)
+            }
+        }
+    }
+
+
 }
 
 

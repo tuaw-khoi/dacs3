@@ -1,6 +1,9 @@
 package com.example.doancoso.domain
 
 import android.util.Log
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -23,6 +26,9 @@ class AuthViewModel(
 
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user.asStateFlow()
+
+    var pendingDeepLinkUid by mutableStateOf<String?>(null)
+    var pendingDeepLinkPlanId by mutableStateOf<String?>(null)
 
     init {
         Log.d("AuthDebug", "ViewModel khởi tạo - AuthState: ${authState.value}")

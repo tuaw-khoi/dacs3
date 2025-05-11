@@ -153,7 +153,7 @@ class FirebaseService {
             if (snapshot.exists()) {
                 val plan = snapshot.getValue(PlanResultDb::class.java)
                 if (plan != null) {
-                    plan.uid = uid  // Nếu cần gán lại uid
+//                    plan.uid = uid  // Nếu cần gán lại uid
                     Result.success(plan)
                 } else {
                     Result.failure(Exception("Plan not found"))
@@ -458,6 +458,22 @@ class FirebaseService {
                 }
             }
     }
+
+    fun getUserIdOfPlan(planId: String, onResult: (String?) -> Unit) {
+    val plansRef = FirebaseDatabase.getInstance().getReference("plans")
+    plansRef.get().addOnSuccessListener { snapshot ->
+        for (userSnapshot in snapshot.children) {
+            val userId = userSnapshot.key
+            if (userSnapshot.hasChild(planId)) {
+                onResult(userId)
+                return@addOnSuccessListener
+            }
+        }
+        onResult(null) // Không tìm thấy
+    }.addOnFailureListener {
+        onResult(null)
+    }
+}
 
 
 }
