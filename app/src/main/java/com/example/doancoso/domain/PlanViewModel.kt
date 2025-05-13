@@ -292,25 +292,53 @@ class PlanViewModel(
 //    }
 
 
-    fun createShareableLink( planId: String,uid: String, onLinkCreated: (String?) -> Unit) {
-        val linkWithUid = Uri.parse("https://doancoso.com/plan?uid=$uid&planId=$planId")
+    fun createShareableLink(
+        planId: String,
+        uid: String,
+        onLinkCreated: (String?) -> Unit
+    ) {
+        try {
+            // 1. Deep link chứa thông tin uid và planId
+            val deepLink = Uri.parse("https://myprojectdoancoso.com/plan?uid=$uid&planId=$planId")
+            Log.d("PlanViewModel", "Creating dynamic link with deep link: $deepLink")
 
-        val dynamicLink = FirebaseDynamicLinks.getInstance().createDynamicLink()
-            .setLink(linkWithUid)
-            .setDomainUriPrefix("https://doancoso.page.link")
-            .setAndroidParameters(
-                DynamicLink.AndroidParameters.Builder()
-                    .setMinimumVersion(1)
-                    .build()
-            )
-            .buildDynamicLink()
+            // 2. Tạo dynamic link builder
+            val dynamicLink = FirebaseDynamicLinks.getInstance()
+                .createDynamicLink()
+                .setLink(deepLink)
+                .setDomainUriPrefix("https://myprojectdoancoso.page.link")
+                .setAndroidParameters(
+                    DynamicLink.AndroidParameters.Builder()
+                        .setMinimumVersion(1)
+                        .build()
+                )
+                .buildDynamicLink()
 
-        FirebaseDynamicLinks.getInstance().shortLinkAsync {
-            longLink = dynamicLink.uri
-        }.addOnSuccessListener { result ->
-            val shortLink = result.shortLink
-            onLinkCreated(shortLink.toString())
-        }.addOnFailureListener {
+            val fullDynamicLink = dynamicLink.uri.toString()
+
+            // 3. Rút gọn link
+            FirebaseDynamicLinks.getInstance()
+                .createDynamicLink()
+                .setLink(deepLink)
+                .setDomainUriPrefix("https://myprojectdoancoso.page.link")
+                .setAndroidParameters(
+                    DynamicLink.AndroidParameters.Builder()
+                        .setMinimumVersion(1)
+                        .build()
+                )
+                .buildShortDynamicLink()
+                .addOnSuccessListener { result ->
+                    val shortLink = result.shortLink
+                    Log.d("PlanViewModel", "Short link created: $shortLink")
+                    onLinkCreated(shortLink?.toString())
+                }
+                .addOnFailureListener { e ->
+                    Log.e("PlanViewModel", "Failed to shorten dynamic link", e)
+                    onLinkCreated(fullDynamicLink) // Fallback: dùng link dài đã build trước đó
+                }
+
+        } catch (e: Exception) {
+            Log.e("PlanViewModel", "Exception in createShareableLink", e)
             onLinkCreated(null)
         }
     }

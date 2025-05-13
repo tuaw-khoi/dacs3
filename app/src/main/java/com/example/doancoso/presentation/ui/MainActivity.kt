@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
             // Xử lý link động khi app được mở
             intent?.data?.let { uri ->
                 Log.d("MainActivity", "Intent data uri: $uri")
-                if (uri.host == "doancoso.com" && uri.path?.startsWith("/plan") == true) {
+                if (uri.host == "myprojectdoancoso.com" && uri.path?.startsWith("/plan") == true) {
                     val planId = uri.getQueryParameter("planId")
                     val uid = uri.getQueryParameter("uid") // Lấy thêm uid từ query parameter
                     Log.d("MainActivity", "Extracted planId: $planId, uid: $uid")
