@@ -249,7 +249,9 @@ fun SettingScreen(
                 ProfileOptionItem(
                     title = "Đổi chủ đề giao diện",
                     icon = painterResource(R.drawable.dark_mode),
-                    onClick = { themeViewModel.toggleTheme() }
+                    onClick = {
+//                        themeViewModel.toggleTheme()
+                    }
                 )
 
 
@@ -262,18 +264,10 @@ fun SettingScreen(
                 )
 
                 ProfileOptionItem(
-                    title = "Lịch sử chuyến đi",
-                    icon = painterResource(R.drawable.history),
-                    onClick = {
-//                        navController.navigate("tripHistory")
-                    }
-                )
-
-                ProfileOptionItem(
                     title = "Trợ giúp & Hỗ trợ",
                     icon = painterResource(R.drawable.help),
                     onClick = {
-//                        navController.navigate("help")
+                        navController.navigate("help")
                     }
                 )
 
@@ -281,7 +275,7 @@ fun SettingScreen(
                     title = "Điều khoản & Chính sách",
                     icon = painterResource(R.drawable.terms),
                     onClick = {
-//                        navController.navigate("terms")
+                        navController.navigate("terms")
                     }
                 )
 

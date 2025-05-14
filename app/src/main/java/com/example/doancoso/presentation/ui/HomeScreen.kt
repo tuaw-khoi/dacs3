@@ -4,6 +4,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,28 +16,35 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +54,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -53,8 +62,10 @@ import androidx.navigation.NavHostController
 import com.example.doancoso.R
 import com.example.doancoso.domain.AuthState
 import com.example.doancoso.domain.AuthViewModel
+import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
 import com.example.doancoso.domain.preferences.UserPreferences
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -73,10 +84,13 @@ fun HomeScreen(
     val startCalendar = remember { java.util.Calendar.getInstance() }
     val endCalendar = remember { java.util.Calendar.getInstance() }
 
-    var chatInput by remember { mutableStateOf("") }
-    var chatResponse by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var isDialogOpen by remember { mutableStateOf(false) }
+    var showSheet by remember { mutableStateOf(false) }
+    var selectedDestination by remember { mutableStateOf("") }
+    var selectedImage by remember { mutableStateOf(R.drawable.indonesia) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
+
+    val planState by planViewModel.planState.collectAsState()
 
     val startDatePickerDialog = remember {
         android.app.DatePickerDialog(
@@ -87,7 +101,6 @@ fun HomeScreen(
                 }
 
                 if (endDate.isNotEmpty() && selectedStart.after(endCalendar)) {
-                    // Ngày bắt đầu sau ngày kết thúc => không cho phép
                     Toast.makeText(
                         context,
                         "Ngày bắt đầu không được sau ngày kết thúc!",
@@ -113,7 +126,6 @@ fun HomeScreen(
                 }
 
                 if (startDate.isNotEmpty() && selectedEnd.before(startCalendar)) {
-                    // Ngày kết thúc trước ngày bắt đầu => không cho phép
                     Toast.makeText(
                         context,
                         "Ngày kết thúc không được trước ngày bắt đầu!",
@@ -130,10 +142,8 @@ fun HomeScreen(
         )
     }
 
-
     val user = (authState as? AuthState.UserLoggedIn)?.user
 
-    // Điều hướng về login nếu chưa đăng nhập
     LaunchedEffect(authState) {
         Log.d("AuthDebug", "AuthState hiện tại: $authState ")
         Log.d(
@@ -142,13 +152,11 @@ fun HomeScreen(
         )
 
         if (authState is AuthState.Idle || user == null) {
-            Log.d("AuthDebug", "Chưa đăng nhập, chuyển về Login")
             navController.navigate("login") {
                 popUpTo("home") { inclusive = true }
             }
         }
     }
-
 
     if (authState !is AuthState.UserLoggedIn || user == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -157,10 +165,26 @@ fun HomeScreen(
         return
     }
 
+    LaunchedEffect(user.uid) {
+        planViewModel.fetchPlansFromFirebase(user.uid)
+    }
+
     var searchQuery by remember { mutableStateOf("") }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Thanh AppBar
+    val onExplore = { selectedStartDate: String, selectedEndDate: String ->
+        startDate = selectedStartDate
+        endDate = selectedEndDate
+        // Thực hiện tìm kiếm kế hoạch với ngày đã chọn
+        planViewModel.fetchPlans(selectedDestination, startDate, endDate)
+        navController.navigate(Screen.SearchPlan.route)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+    ) {
+
         TopAppBar(
             title = {
                 Text(
@@ -179,17 +203,15 @@ fun HomeScreen(
             }
         )
 
-        // Ảnh banner
         Image(
             painter = painterResource(id = R.drawable.homebanner),
             contentDescription = "Hình ảnh du lịch",
             modifier = Modifier
                 .fillMaxWidth()
-                .height(230.dp),
+                .height(200.dp),
             contentScale = ContentScale.Crop
         )
 
-        // Ô tìm kiếm
         Box(modifier = Modifier.padding(16.dp)) {
             OutlinedTextField(
                 value = searchQuery,
@@ -222,8 +244,6 @@ fun HomeScreen(
                 }
             )
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         Row(
             modifier = Modifier
@@ -259,33 +279,95 @@ fun HomeScreen(
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 
-
-
-        // Kế hoạch du lịch
-        Text(
-            text = "Kế hoạch du lịch của bạn",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(16.dp, top = 20.dp)
-        )
-
-        val travelPlans = remember { listOf<String>() } // TODO: Lấy danh sách từ API/database
-
-        if (travelPlans.isEmpty()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = "Chưa có kế hoạch nào. Hãy khám phá ngay!",
-                color = Color.Gray,
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 16.dp)
+                text = "Kế hoạch du lịch của bạn",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
             )
-        } else {
-            // TODO: Hiển thị danh sách kế hoạch du lịch ở đây
+
+            // Chỉ hiển thị nút "Xem thêm" nếu có >= 3 kế hoạch
+            if (planState is PlanUiState.SuccessMultiple) {
+                val plans = (planState as PlanUiState.SuccessMultiple).plans
+                if (plans.size >= 3) {
+                    TextButton(onClick = {
+                        navController.navigate("plan") // Chuyển sang màn hình Plan
+                    }) {
+                        Text("Xem thêm")
+                    }
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        when (planState) {
+            is PlanUiState.SuccessMultiple -> {
+                val plans = (planState as PlanUiState.SuccessMultiple).plans
 
-        // Điểm đến phổ biến
+                val displayedPlans = plans.take(1)
+
+                Column(modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)) {
+                    displayedPlans.forEach { plan ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .clickable {
+                                    navController.navigate("planDetail/${plan.uid}")
+                                },
+                            elevation = CardDefaults.cardElevation(4.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = plan.destination,
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Từ ${plan.itinerary.startDate} đến ${plan.itinerary.endDate}",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            is PlanUiState.FetchingPlans -> {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Đang tải...")
+                }
+            }
+
+            is PlanUiState.Error -> {
+                Text(
+                    text = "Chưa có kế hoạch nào. Hãy khám phá ngay!",
+                    color = Color.Gray,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            else -> {}
+        }
+
         Text(
             text = "Điểm đến phổ biến",
             fontSize = 20.sp,
@@ -294,40 +376,60 @@ fun HomeScreen(
         )
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-            DestinationCard(imageRes = R.drawable.indonesia, title = "INDONESIA")
-            DestinationCard(imageRes = R.drawable.japan, title = "JAPAN")
+            DestinationCard(
+                imageRes = R.drawable.indonesia,
+                title = "INDONESIA",
+                onClick = {
+                    selectedDestination = "INDONESIA"
+                    selectedImage = R.drawable.indonesia
+                    showSheet = true
+                }
+            )
+            DestinationCard(
+                imageRes = R.drawable.japan,
+                title = "JAPAN",
+                onClick = {
+                    selectedDestination = "JAPAN"
+                    selectedImage = R.drawable.japan
+                    showSheet = true
+                }
+            )
         }
-//        Column(modifier = Modifier.fillMaxSize()) {
-//            // IconButton to open the dialog
-//            IconButton(onClick = { isDialogOpen = true }) {
-//                Icon(Icons.Default.Info, contentDescription = "Open Gemini Assistant")
-//            }
-//
-//            // Show Dialog when isDialogOpen is true
-//            if (isDialogOpen) {
-//                GeminiDialog(
-//                    chatInput = chatInput,
-//                    onChatInputChange = { chatInput = it },
-//                    onSubmit = {
-//                        if (chatInput.isNotBlank()) {
-//                            isLoading = true
-//                            planViewModel.askGemini(chatInput) { result ->
-//                                chatResponse = result
-//                                isLoading = false
-//                            }
-//                        }
-//                    },
-//                    chatResponse = chatResponse,
-//                    isLoading = isLoading,
-//                    onDismiss = { isDialogOpen = false }
-//                )
-//            }
-//        }
-//
+
+        if (showSheet) {
+            ModalBottomSheet(
+                onDismissRequest = {
+                    coroutineScope.launch {
+                        sheetState.hide()
+                        showSheet = false
+                    }
+                },
+                sheetState = sheetState,
+                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                tonalElevation = 8.dp,
+                containerColor = Color.White
+            ) {
+                DestinationBottomSheetContent(
+                    destination = selectedDestination,
+                    imageRes = selectedImage,
+                    description = when (selectedDestination) {
+                        "INDONESIA" -> "Khám phá vẻ đẹp hoang sơ và những bãi biển tuyệt đẹp tại Indonesia."
+                        "JAPAN" -> "Trải nghiệm văn hóa truyền thống kết hợp hiện đại tại Nhật Bản."
+                        else -> ""
+                    },
+                    onDismiss = {
+                        coroutineScope.launch {
+                            sheetState.hide()
+                            showSheet = false
+                        }
+                    },
+                    onExplore = onExplore
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Thanh điều hướng dưới cùng
         BottomAppBar(containerColor = Color.White) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -351,9 +453,7 @@ fun HomeScreen(
                 Divider(modifier = Modifier
                     .height(40.dp)
                     .width(1.dp), color = Color.Gray)
-                IconButton(onClick = {
-                    navController.navigate("setting")
-                }) {
+                IconButton(onClick = { navController.navigate("setting") }) {
                     Icon(
                         painter = painterResource(id = R.drawable.setting),
                         contentDescription = "Cài đặt"
@@ -364,67 +464,14 @@ fun HomeScreen(
     }
 }
 
-
 @Composable
-fun GeminiDialog(
-    chatInput: String,
-    onChatInputChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    chatResponse: String,
-    isLoading: Boolean,
-    onDismiss: () -> Unit
-) {
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.surface
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Trợ lý du lịch Gemini", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-
-                OutlinedTextField(
-                    value = chatInput,
-                    onValueChange = onChatInputChange,
-                    label = { Text("Hỏi về điểm đến...") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Button(
-                    onClick = onSubmit,
-                    enabled = !isLoading
-                ) {
-                    Text("Hỏi Gemini")
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (isLoading) {
-                    CircularProgressIndicator()
-                } else if (chatResponse.isNotEmpty()) {
-                    Text("Gemini trả lời:", fontWeight = FontWeight.Bold)
-                    Text(chatResponse)
-                }
-            }
-        }
-    }
-}
-
-
-
-
-@Composable
-fun DestinationCard(imageRes: Int, title: String) {
+fun DestinationCard(imageRes: Int, title: String, onClick: () -> Unit) {
     Card(
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .size(150.dp)
             .shadow(8.dp)
+            .clickable { onClick() }
     ) {
         Box {
             Image(
@@ -450,3 +497,129 @@ fun DestinationCard(imageRes: Int, title: String) {
         }
     }
 }
+
+
+@Composable
+fun DestinationBottomSheetContent(
+    destination: String,
+    imageRes: Int,
+    description: String,
+    onDismiss: () -> Unit,
+    onExplore: (String, String) -> Unit
+) {
+    var startDate by remember { mutableStateOf("") }
+    var endDate by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val startCalendar = remember { java.util.Calendar.getInstance() }
+    val endCalendar = remember { java.util.Calendar.getInstance() }
+
+    val startDatePickerDialog = remember {
+        android.app.DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                startCalendar.set(year, month, dayOfMonth)
+                startDate = "$dayOfMonth/${month + 1}/$year"
+            },
+            startCalendar.get(java.util.Calendar.YEAR),
+            startCalendar.get(java.util.Calendar.MONTH),
+            startCalendar.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    val endDatePickerDialog = remember {
+        android.app.DatePickerDialog(
+            context,
+            { _, year, month, dayOfMonth ->
+                endCalendar.set(year, month, dayOfMonth)
+                endDate = "$dayOfMonth/${month + 1}/$year"
+            },
+            endCalendar.get(java.util.Calendar.YEAR),
+            endCalendar.get(java.util.Calendar.MONTH),
+            endCalendar.get(java.util.Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(
+            text = destination,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Image(
+            painter = painterResource(id = imageRes),
+            contentDescription = destination,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp),
+            contentScale = ContentScale.Crop
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.Gray
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+
+        Text(
+            text = if (startDate.isNotEmpty() && endDate.isNotEmpty())
+                "Từ $startDate đến $endDate"
+            else
+                "Vui lòng chọn thời gian",
+            style = MaterialTheme.typography.bodyMedium
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Button(
+                onClick = { startDatePickerDialog.show() },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Chọn ngày bắt đầu")
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = { endDatePickerDialog.show() },
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Chọn ngày kết thúc")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                if (startDate.isNotEmpty() && endDate.isNotEmpty()) {
+                    onExplore(startDate, endDate)
+                    onDismiss()
+                } else {
+                    Toast.makeText(context, "Vui lòng chọn thời gian", Toast.LENGTH_SHORT).show()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Khám phá ngay")
+        }
+    }
+}
+
+
+
+

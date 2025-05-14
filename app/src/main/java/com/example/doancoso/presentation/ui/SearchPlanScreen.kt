@@ -45,6 +45,8 @@ fun SearchPlanScreen(
     if (authState !is AuthState.UserLoggedIn || user == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
+            Spacer(Modifier.height(8.dp))
+            Text("Đang tải...")
         }
         return
     }

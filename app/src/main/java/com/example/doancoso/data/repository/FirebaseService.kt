@@ -13,6 +13,7 @@ import com.google.firebase.database.ktx.getValue
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 class FirebaseService {
     val auth: FirebaseAuth = FirebaseAuth.getInstance()
@@ -246,7 +247,13 @@ class FirebaseService {
                             itineraryRef.child(dayIndex.toString()).removeValue().await()
 
                             // Cập nhật lại ngày bắt đầu và kết thúc nếu không còn ngày nào
-                            updatePlanDatesAndDays(uid, planId)
+                            try {
+                                updatePlanDatesAndDays(uid, planId)
+                            } catch (e: DateTimeParseException) {
+                                Log.e("FirebaseService", "❌ Error parsing dates while updating plan: ${e.localizedMessage}")
+                                return Result.failure(Exception("Invalid date format"))
+                            }
+
                         } else {
                             // Nếu vẫn còn hoạt động, cập nhật lại ngày
                             planRef.setValue(dayPlan).await()
@@ -267,6 +274,7 @@ class FirebaseService {
             Result.failure(e)
         }
     }
+
 
     private suspend fun updatePlanDatesAndDays(uid: String, planId: String) {
         val planRef = FirebaseDatabase.getInstance()
@@ -289,7 +297,7 @@ class FirebaseService {
                     var endDate = planItinerary.endDate
 
                     if (endDate.isNotEmpty()) {
-                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+                        val formatter = DateTimeFormatter.ofPattern("d/M/yyyy")
                         val localDate = LocalDate.parse(endDate, formatter)
 
                         val newEndDate = localDate.minusDays(1)

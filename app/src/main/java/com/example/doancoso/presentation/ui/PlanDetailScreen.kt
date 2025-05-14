@@ -1,7 +1,6 @@
 package com.example.doancoso.presentation.ui
 
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Warning
@@ -63,7 +63,6 @@ fun PlanDetailScreen(
     val user = (authState as? AuthState.UserLoggedIn)?.user
     val context = LocalContext.current
 
-
     LaunchedEffect(planId) {
         Log.d("PlanDetailScreen", "LaunchedEffect triggered with planId: $planId")
         if (authState is AuthState.Idle || user == null) {
@@ -83,8 +82,8 @@ fun PlanDetailScreen(
         is PlanUiState.Loading -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Đang tải...")
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Đang tải...", style = MaterialTheme.typography.bodyMedium)
             }
         }
 
@@ -100,18 +99,17 @@ fun PlanDetailScreen(
                         planViewModel = planViewModel,
                         userId = user.uid,
                     )
-
                 }
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = "Không thể hiển thị kế hoạch",
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 }
             }
         }
-
 
         is PlanUiState.Error -> {
             val message = (planState as PlanUiState.Error).message
@@ -147,7 +145,7 @@ fun PlanDetailScreen(
                                 fontWeight = FontWeight.Bold
                             ),
                             modifier = Modifier.fillMaxWidth(),
-                            textAlign = TextAlign.Center // Đặt text căn giữa
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -164,286 +162,203 @@ fun PlanDetailContent(
     navController: NavHostController,
     planId: String,
     planViewModel: PlanViewModel,
-    userId:String,
+    userId: String,
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var dayIndexToDelete by remember { mutableStateOf(-1) }
-    var showJoinDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
-
-    // Sử dụng state để lưu quyền chỉnh sửa
-    var canEdit by remember { mutableStateOf(true) }
-
+    val canEdit = true
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // Thông tin tổng quan
         item {
-//            if (!canEdit) {
-//                Card(
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .padding(bottom = 16.dp),
-//                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
-//                    elevation = CardDefaults.cardElevation(4.dp)
-//                ) {
-//                    Column(Modifier.padding(16.dp)) {
-//                        Text(
-//                            text = "📩 Bạn chỉ có thể xem kế hoạch này. Muốn trở thành chủ sở hữu?",
-//                            color = Color(0xFFEF6C00),
-//                            style = MaterialTheme.typography.bodyMedium,
-//                        )
-//                        Spacer(modifier = Modifier.height(8.dp))
-//                        Button(onClick = { showJoinDialog = true }) {
-//                            Text("Tham gia làm chủ sở hữu")
-//                        }
-//                    }
-//                }
-//            }
-
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                elevation = CardDefaults.cardElevation(8.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(6.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "📍 Điểm đến: ${planDb.destination}",
-                            fontSize = 22.sp,
-                            color = MaterialTheme.colorScheme.primary,
-                            style = MaterialTheme.typography.headlineSmall
+                            text = "📍 ${planDb.destination}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
-
-                        // Nếu user không phải người mời, hiển thị nút chỉnh sửa
                         if (canEdit) {
                             TextButton(onClick = {
                                 navController.navigate("editPlan/$planId")
                             }) {
-                                Text("Chỉnh sửa", color = MaterialTheme.colorScheme.primary)
+                                Text("Chỉnh sửa", style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    Text(
-                        text = "📅 Bắt đầu: ${planDb.itinerary.startDate}",
-                        fontSize = 16.sp,
-                        color = Color.Gray
-                    )
-
-                    Text(
-                        text = "📅 Kết thúc: ${planDb.itinerary.endDate}",
-                        fontSize = 16.sp,
-                        color = Color.Gray
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "🗓️ Tổng số ngày: ${planDb.itinerary.itinerary.size} ngày",
-                        fontSize = 16.sp,
-                        color = Color.Gray
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "🍽️ Đặc sản gợi ý: ${planDb.itinerary.specialties.joinToString(", ")}",
-                        fontSize = 16.sp,
-                        color = Color.Gray
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "🚗 Phương tiện di chuyển: ${
-                            planDb.itinerary.transportation.joinToString(", ")
-                        }",
-                        fontSize = 16.sp,
-                        color = Color.Gray
-                    )
+                    InfoRow("📅 Bắt đầu:", planDb.itinerary.startDate)
+                    InfoRow("📅 Kết thúc:", planDb.itinerary.endDate)
+                    InfoRow("🗓️ Số ngày:", "${planDb.itinerary.itinerary.size} ngày")
+                    InfoRow("🍽️ Đặc sản:", planDb.itinerary.specialties.joinToString(", "))
+                    InfoRow("🚗 Di chuyển:", planDb.itinerary.transportation.joinToString(", "))
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
             Text(
-                text = "📝 Chi tiết lịch trình: ",
+                text = "📝 Lịch trình chi tiết",
                 style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(vertical = 8.dp)
             )
         }
 
+        // Danh sách các ngày
         itemsIndexed(planDb.itinerary.itinerary) { index, dayPlan ->
-
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 8.dp),
-                shape = MaterialTheme.shapes.medium,
+                shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(4.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Ngày ${index + 1}",
+                            text = "📆 Ngày ${index + 1}",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
-
-                        // Nếu user không phải người mời, hiển thị nút xóa ngày và chỉnh sửa
                         if (canEdit) {
-                            // Nút xóa ngày
-                            IconButton(
-                                onClick = {
+                            Row {
+                                IconButton(onClick = {
                                     dayIndexToDelete = index
                                     showDeleteDialog = true
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Xóa", tint = Color.Red)
                                 }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Delete,
-                                    contentDescription = "Xóa ngày",
-                                    tint = Color.Red
-                                )
-                            }
 
-                            // Nút chỉnh sửa ngày
-                            TextButton(onClick = {
-                                navController.navigate("editDay/$planId/$userId/$index")
-                            }) {
-                                Text("Chỉnh sửa ngày", color = MaterialTheme.colorScheme.primary)
+                                TextButton(onClick = {
+                                    navController.navigate("editDay/$planId/$userId/$index")
+                                }) {
+                                    Text("Chỉnh sửa", style = MaterialTheme.typography.labelLarge)
+                                }
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    val sortedActivities = dayPlan.activities
-                        ?.sortedWith(compareBy { activity ->
-                            when (activity.timeOfDay) {
-                                "Buổi Sáng" -> 0
-                                "Buổi Chiều" -> 1
-                                "Buổi Tối" -> 2
-                                else -> 3
-                            }
-                        })
+                    // Sắp xếp hoạt động theo thời gian trong ngày
+                    val sortedActivities = dayPlan.activities?.sortedWith(compareBy {
+                        when (it.timeOfDay) {
+                            "Buổi Sáng" -> 0
+                            "Buổi Chiều" -> 1
+                            "Buổi Tối" -> 2
+                            else -> 3
+                        }
+                    })
 
-                    // Danh sách các hoạt động trong ngày
-                    sortedActivities?.forEachIndexed { activityIndex, activity ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                    sortedActivities?.forEachIndexed { actIndex, act ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "• ${activity.description}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.DarkGray,
-                                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-                                )
-                                Text(
-                                    text = "📍 ${activity.location}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray,
-                                    modifier = Modifier
-                                        .padding(start = 8.dp, bottom = 4.dp)
-                                        .clickable {
-                                            // Điều hướng đến màn hình chi tiết điểm đến
-                                            navController.navigate("destinationDetail/${activity.location}")
-                                        }
-                                )
-                                Text(
-                                    text = "🕒 ${activity.timeOfDay}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray,
-                                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-                                )
-                                Text(
-                                    text = "🚗 Phương tiện: ${activity.transportation}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray,
-                                    modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
-                                )
-                            }
-
-                            // Nút xóa hoạt động
-                            if (canEdit) { IconButton(
-                                onClick = {
-                                    planViewModel.deleteActivityFromPlan(
-                                        index,
-                                        activityIndex,
-                                        planId,
-                                        userId
+                            Text(
+                                text = "• ${act.description}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(start = 8.dp)
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "📍 ${act.location}",
+                                        color = Color.Gray,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier
+                                            .padding(start = 8.dp)
+                                            .clickable {
+                                                navController.navigate("destinationDetail/${act.location}")
+                                            }
+                                    )
+                                    Text(
+                                        text = "🕒 ${act.timeOfDay}",
+                                        color = Color.Gray,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.padding(start = 8.dp)
+                                    )
+                                    Text(
+                                        text = "🚗 ${act.transportation}",
+                                        color = Color.Gray,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        modifier = Modifier.padding(start = 8.dp)
                                     )
                                 }
-                            ) {
-                                Icon(
-                                    Icons.Filled.Delete,
-                                    contentDescription = "Xóa hoạt động",
-                                    tint = Color.Red
-                                )
-                            }}
 
+                                if (canEdit) {
+                                    IconButton(onClick = {
+                                        planViewModel.deleteActivityFromPlan(
+                                            index, actIndex, planId, userId
+                                        )
+                                    }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Xóa", tint = Color.Red)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
+        // Thêm ngày mới
         item {
-            Spacer(modifier = Modifier.height(16.dp))
-
             if (canEdit) {
                 Button(
                     onClick = {
-                        planViewModel.addDayToPlan(userId, planId) { newDayIndex ->
-                            navController.navigate("editDay/$planId/$userId/$newDayIndex")
+                        planViewModel.addDayToPlan(userId, planId) { newIndex ->
+                            navController.navigate("editDay/$planId/$userId/$newIndex")
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 16.dp)
+                        .padding(vertical = 16.dp)
                         .height(48.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = ButtonDefaults.buttonColors(MaterialTheme.colorScheme.secondary)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(
-                        text = "Thêm ngày mới",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White
-                    )
+                    Text("➕ Thêm ngày mới", style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
     }
 
-    // Cảnh báo xác nhận xóa ngày
+    // Dialog xác nhận xóa ngày
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Xóa ngày") },
-            text = { Text("Bạn chắc chắn muốn xóa ngày ${dayIndexToDelete + 1}?") },
+            text = { Text("Bạn có chắc muốn xóa ngày ${dayIndexToDelete + 1}?") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        planViewModel.deleteDayFromPlan(
-                            dayIndexToDelete,
-                            planId,
-                            userId,
-                            navController
-                        )
+                        planViewModel.deleteDayFromPlan(dayIndexToDelete, planId, userId, navController)
                         showDeleteDialog = false
                     }
                 ) {
@@ -451,46 +366,24 @@ fun PlanDetailContent(
                 }
             },
             dismissButton = {
-                TextButton(
-                    onClick = { showDeleteDialog = false }
-                ) {
+                TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Hủy")
                 }
             }
         )
     }
-
-    // Dialog xác nhận tham gia làm chủ sở hữu
-//    if (showJoinDialog) {
-//        AlertDialog(
-//            onDismissRequest = { showJoinDialog = false },
-//            title = { Text("Tham gia làm chủ sở hữu") },
-//            text = { Text("Bạn muốn trở thành chủ sở hữu kế hoạch này?") },
-//            confirmButton = {
-//                TextButton(
-//                    onClick = {
-//                        planViewModel.addOwnerToPlan(
-//                            planId = planId,
-//                            currentUid = userId,
-//                            ownerUid = userId,
-//                            onSuccess = {
-//                                showJoinDialog = false
-//                                Toast.makeText(context, "Đã thêm bạn làm chủ sở hữu!", Toast.LENGTH_SHORT).show()
-//                            },
-//                            onError = {
-//                                showJoinDialog = false
-//                                Toast.makeText(context, "Có lỗi: $it", Toast.LENGTH_SHORT).show()
-//                            }
-//                        )
-//                    }
-//                ) { Text("Đồng ý") }
-//            },
-//            dismissButton = {
-//                TextButton(onClick = { showJoinDialog = false }) { Text("Hủy") }
-//            }
-//        )
-//    }
 }
+
+@Composable
+fun InfoRow(icon: String, value: String) {
+    Text(
+        text = "$icon $value",
+        style = MaterialTheme.typography.bodyMedium,
+        color = Color.DarkGray,
+        modifier = Modifier.padding(vertical = 2.dp)
+    )
+}
+
 
 
 

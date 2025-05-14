@@ -1,6 +1,7 @@
 package com.example.doancoso.domain
 
-import android.system.Os.link
+
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,17 +11,13 @@ import com.example.doancoso.data.models.DestinationDetails
 import com.example.doancoso.data.models.PlanResult
 import com.example.doancoso.data.models.PlanResultDb
 import com.example.doancoso.data.repository.PlanRepository
-import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.dynamiclinks.DynamicLink
+import com.google.firebase.dynamiclinks.FirebaseDynamicLinks
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import android.net.Uri
-import com.google.firebase.dynamiclinks.DynamicLink
-import com.google.firebase.dynamiclinks.FirebaseDynamicLinks
-import com.google.firebase.dynamiclinks.ShortDynamicLink
-import com.google.firebase.dynamiclinks.ktx.shortLinkAsync
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.auth.FirebaseAuth
 
 interface BasePlan
 
@@ -276,21 +273,6 @@ class PlanViewModel(
         }
     }
 
-//    fun askGemini(prompt: String, onResult: (String) -> Unit) {
-//        _isLoading.value = true
-//        viewModelScope.launch {
-//            try {
-//                // Gọi phương thức từ repository để lấy kết quả từ Gemini API
-//                val result = planRepository.askGeminiFromRepo(prompt)
-//                _isLoading.value = false
-//                onResult(result) // Trả kết quả qua callback
-//            } catch (e: Exception) {
-//                _isLoading.value = false
-//                onResult("Có lỗi xảy ra: ${e.localizedMessage}")
-//            }
-//        }
-//    }
-
 
     fun createShareableLink(
         planId: String,
@@ -344,7 +326,13 @@ class PlanViewModel(
     }
 
 
-    fun addOwnerToPlan(planId: String, currentUid: String, ownerUid: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun addOwnerToPlan(
+        planId: String,
+        currentUid: String,
+        ownerUid: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         _planState.value = PlanUiState.Loading
 
         viewModelScope.launch {
@@ -361,13 +349,15 @@ class PlanViewModel(
                         val updatedPlan = plan.copy(owners = updatedOwners)
 
                         // Lưu lại kế hoạch với danh sách owner mới
-                        val updateResult = planRepository.updatePlan(currentUid, updatedPlan, planId)
+                        val updateResult =
+                            planRepository.updatePlan(currentUid, updatedPlan, planId)
 
                         updateResult.onSuccess {
                             _planState.value = PlanUiState.Success(updatedPlan)
                             onSuccess()
                         }.onFailure {
-                            _planState.value = PlanUiState.Error("Lỗi khi cập nhật owner: ${it.localizedMessage}")
+                            _planState.value =
+                                PlanUiState.Error("Lỗi khi cập nhật owner: ${it.localizedMessage}")
                             onError("Lỗi khi cập nhật owner: ${it.localizedMessage}")
                         }
                     } else {
@@ -416,7 +406,10 @@ class PlanViewModel(
             if (planResult.isSuccess) {
                 val plan = planResult.getOrNull()
                 // currentUserId là rootOwner hoặc nằm trong danh sách owners
-                if (plan is PlanResultDb && (rootOwnerId == currentUserId || plan.owners.contains(currentUserId))) {
+                if (plan is PlanResultDb && (rootOwnerId == currentUserId || plan.owners.contains(
+                        currentUserId
+                    ))
+                ) {
                     onResult(true)
                 } else {
                     onResult(false)

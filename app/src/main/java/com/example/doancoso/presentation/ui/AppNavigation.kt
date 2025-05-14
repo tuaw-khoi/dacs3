@@ -31,6 +31,8 @@ import com.example.doancoso.presentation.ui.plan.EditDayScreen
 import com.example.doancoso.presentation.ui.plan.EditPlanScreen
 import com.example.doancoso.presentation.ui.profile.EditProfileScreen
 import android.util.Log
+import com.example.doancoso.presentation.ui.profile.HelpScreen
+import com.example.doancoso.presentation.ui.profile.TermsScreen
 
 sealed class Screen(val route: String) {
     data object Login : Screen("login")
@@ -40,6 +42,8 @@ sealed class Screen(val route: String) {
     data object SearchPlan : Screen("searchPlan")
     data object Plan : Screen("plan")
     data object EditProfile : Screen("editProfile")
+    data object Help : Screen("help")
+    data object Terms : Screen("terms")
 
 }
 
@@ -80,6 +84,14 @@ fun AppNavigation(
         composable(Screen.EditProfile.route) {
             EditProfileScreen(navController, authViewModel)
         }
+        composable(Screen.Help.route) {
+            HelpScreen(navController)
+        }
+        composable(Screen.Terms.route) {
+            TermsScreen(navController)
+        }
+
+
         composable("planDetail/{planId}") { backStackEntry ->
             val planId = backStackEntry.arguments?.getString("planId")
             if (planId != null) {
