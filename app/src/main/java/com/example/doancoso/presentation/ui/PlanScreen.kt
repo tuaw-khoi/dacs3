@@ -2,8 +2,11 @@ package com.example.doancoso.presentation.ui
 
 import android.R.string
 import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -55,6 +59,9 @@ import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.ui.graphics.asImageBitmap
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 
 @Composable
 fun PlanScreen(
@@ -192,7 +199,8 @@ fun PlanScreen(
                                     selectedPlanToDelete = planToDelete
                                     showDeleteDialog = true
                                 },
-                                planViewModel = planViewModel,userId = user?.uid.toString()
+                                planViewModel = planViewModel,userId = user?.uid.toString(),
+                                navController
                             )
                         }
 
@@ -236,7 +244,8 @@ fun PlanCards(
     onCardClick: (PlanResult) -> Unit,
     onDeleteClick: (PlanResult) -> Unit,
     planViewModel: PlanViewModel,
-    userId:String
+    userId:String,
+    navController: NavHostController
 ) {
     val context = LocalContext.current
     Card(
@@ -265,24 +274,34 @@ fun PlanCards(
                     // Nút chia sẻ
                     IconButton(onClick = {
                         plan.uid?.let { planId ->
-                            planViewModel.createShareableLink(planId,userId) { link ->
+                            planViewModel.createShareableLink(planId, userId) { link ->
                                 link?.let {
-                                    // Copy link hoặc mở share sheet
-                                    val sendIntent = Intent().apply {
-                                        action = Intent.ACTION_SEND
-                                        putExtra(Intent.EXTRA_TEXT, it)
-                                        type = "text/plain"
-                                    }
-                                    val shareIntent = Intent.createChooser(sendIntent, null)
-                                    context.startActivity(shareIntent)
+                                    // Encode link để tránh lỗi URL khi truyền qua Nav
+                                    val encodedLink = Uri.encode(it)
+                                    navController.navigate("qrCode/$encodedLink")
                                 } ?: run {
                                     Toast.makeText(context, "Không tạo được link chia sẻ", Toast.LENGTH_SHORT).show()
                                 }
                             }
+//                            planViewModel.createShareableLink(planId,userId) { link ->
+//                                link?.let {
+//                                    // Copy link hoặc mở share sheet
+//                                    val sendIntent = Intent().apply {
+//                                        action = Intent.ACTION_SEND
+//                                        putExtra(Intent.EXTRA_TEXT, it)
+//                                        type = "text/plain"
+//                                    }
+//                                    val shareIntent = Intent.createChooser(sendIntent, null)
+//                                    context.startActivity(shareIntent)
+//                                } ?: run {
+//                                    Toast.makeText(context, "Không tạo được link chia sẻ", Toast.LENGTH_SHORT).show()
+//                                }
+//                            }
                         }
                     }) {
                         Icon(Icons.Default.Share, contentDescription = "Chia sẻ kế hoạch")
                     }
+
                 }
             }
 
@@ -320,4 +339,49 @@ fun PlanCards(
         }
     }
 }
+@Composable
+fun QRCodeScreen(link: String) {
+    val bitmap = remember(link) { generateQRCodeBitmap(link) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Mã QR chia sẻ kế hoạch", fontSize = 20.sp)
+        Spacer(modifier = Modifier.height(20.dp))
+
+        bitmap?.let {
+            Image(
+                bitmap = it.asImageBitmap(),
+                contentDescription = "QR Code",
+                modifier = Modifier.size(300.dp)
+            )
+        } ?: Text("Không thể tạo mã QR", color = Color.Red)
+    }
+}
+
+fun generateQRCodeBitmap(content: String): Bitmap? {
+    return try {
+        val writer = QRCodeWriter()
+        val bitMatrix = writer.encode(content, BarcodeFormat.QR_CODE, 512, 512)
+        val width = bitMatrix.width
+        val height = bitMatrix.height
+        val bmp = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+
+        for (x in 0 until width) {
+            for (y in 0 until height) {
+                bmp.setPixel(x, y, if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+            }
+        }
+        bmp
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
+
 

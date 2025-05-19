@@ -55,6 +55,20 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.1.4")
     implementation("androidx.datastore:datastore:1.1.4")
 
+    implementation ("com.google.zxing:core:3.5.2")
+    implementation ("androidx.compose.ui:ui-graphics:1.5.4")
+
+    implementation ("com.google.mlkit:barcode-scanning:17.2.0")
+
+    implementation ("androidx.camera:camera-camera2:1.3.1")
+    implementation ("androidx.camera:camera-lifecycle:1.3.1")
+    implementation ("androidx.camera:camera-view:1.3.1")
+    implementation ("androidx.camera:camera-core:1.3.1")
+// Lifecycle
+    implementation ("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
+    implementation("com.google.guava:guava:31.1-android")
+    implementation ("com.google.accompanist:accompanist-permissions:0.31.3-beta")
+
 
 
     implementation(libs.firebase.auth.ktx)

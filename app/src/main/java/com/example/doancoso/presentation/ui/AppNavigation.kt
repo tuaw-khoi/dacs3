@@ -1,19 +1,19 @@
 package com.example.doancoso.presentation.ui
 
-import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.doancoso.data.models.PlanResultDb
 import com.example.doancoso.data.remote.ApiClient
 import com.example.doancoso.data.remote.PlanService
@@ -21,16 +21,13 @@ import com.example.doancoso.data.repository.FirebaseService
 import com.example.doancoso.data.repository.PlanRepository
 import com.example.doancoso.domain.AuthState
 import com.example.doancoso.domain.AuthViewModel
-import com.example.doancoso.domain.AuthViewModelFactory
 import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
 import com.example.doancoso.domain.ThemeViewModel
 import com.example.doancoso.domain.factory.PlanViewModelFactory
-import com.example.doancoso.domain.preferences.UserPreferences
 import com.example.doancoso.presentation.ui.plan.EditDayScreen
 import com.example.doancoso.presentation.ui.plan.EditPlanScreen
 import com.example.doancoso.presentation.ui.profile.EditProfileScreen
-import android.util.Log
 import com.example.doancoso.presentation.ui.profile.HelpScreen
 import com.example.doancoso.presentation.ui.profile.TermsScreen
 
@@ -44,6 +41,7 @@ sealed class Screen(val route: String) {
     data object EditProfile : Screen("editProfile")
     data object Help : Screen("help")
     data object Terms : Screen("terms")
+    data object ScanQr : Screen("scanQr")
 
 }
 
@@ -91,6 +89,14 @@ fun AppNavigation(
             TermsScreen(navController)
         }
 
+        composable(Screen.ScanQr.route) {
+            ScanQrScreen(
+                navController = navController,
+                planViewModel = planViewModel,
+                authViewModel = authViewModel
+            )
+        }
+
 
         composable("planDetail/{planId}") { backStackEntry ->
             val planId = backStackEntry.arguments?.getString("planId")
@@ -114,6 +120,26 @@ fun AppNavigation(
                 )
             }
         }
+
+
+        composable(
+            "planDetailOwnerQR/{planId}/{ownerUid}",
+            arguments = listOf(
+                navArgument("planId") { type = NavType.StringType },
+                navArgument("ownerUid") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            PlanDetailOwneQRScreen(
+                navController = navController,
+                authViewModel = authViewModel,
+                planViewModel = planViewModel,
+                planId = backStackEntry.arguments?.getString("planId") ?: "",
+                ownerUid = backStackEntry.arguments?.getString("ownerUid") ?: ""
+            )
+        }
+
+
+
         composable("destinationDetail/{destinationName}") { backStackEntry ->
             val destinationName = backStackEntry.arguments?.getString("destinationName") ?: ""
             DestinationDetailScreen(navController, authViewModel, destinationName, planViewModel)
@@ -132,7 +158,14 @@ fun AppNavigation(
                 EditDayScreen(dayIndex, planId, uid, planViewModel, navController, plan)
             }
         }
+        composable("qrCode/{encodedLink}") { backStackEntry ->
+            val encodedLink = backStackEntry.arguments?.getString("encodedLink") ?: ""
+            val decodedLink = Uri.decode(encodedLink)
+            QRCodeScreen(link = decodedLink)
+        }
+
     }
+
 
     // Điều hướng tới planDetail nếu có deep link sau khi đăng nhập
     LaunchedEffect(authState, deepLinkPlanId) {

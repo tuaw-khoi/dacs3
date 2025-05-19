@@ -1,7 +1,17 @@
 package com.example.doancoso.presentation.ui
 
+import android.content.Context
+import android.net.Uri
 import android.util.Log
+import android.util.Size
 import android.widget.Toast
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +30,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
@@ -33,10 +44,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,15 +62,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.toRect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import com.example.doancoso.R
 import com.example.doancoso.domain.AuthState
@@ -65,6 +85,11 @@ import com.example.doancoso.domain.AuthViewModel
 import com.example.doancoso.domain.PlanUiState
 import com.example.doancoso.domain.PlanViewModel
 import com.example.doancoso.domain.preferences.UserPreferences
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.mlkit.vision.barcode.BarcodeScanning
+import com.google.mlkit.vision.common.InputImage
 import kotlinx.coroutines.launch
 
 
@@ -194,6 +219,14 @@ fun HomeScreen(
                 )
             },
             actions = {
+                IconButton(onClick = {
+                    navController.navigate("scanQr")
+                }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.scanqr),
+                        contentDescription = "Quét mã QR"
+                    )
+                }
                 IconButton(onClick = { /* TODO: Xử lý thông báo */ }) {
                     Icon(
                         painter = painterResource(id = R.drawable.notification),
@@ -620,6 +653,218 @@ fun DestinationBottomSheetContent(
     }
 }
 
+@androidx.annotation.OptIn(ExperimentalGetImage::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun ScanQrScreen(
+    navController: NavController,
+    planViewModel: PlanViewModel,
+    authViewModel: AuthViewModel
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
+    val previewView = remember { PreviewView(context) }
+    val scope = rememberCoroutineScope()
+
+    // Xin quyền CAMERA runtime
+    val cameraPermissionState = rememberPermissionState(permission = android.Manifest.permission.CAMERA)
+
+    LaunchedEffect(Unit) {
+        if (!cameraPermissionState.status.isGranted) {
+            cameraPermissionState.launchPermissionRequest()
+        }
+    }
+
+    if (cameraPermissionState.status.isGranted) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Quét mã QR", color = Color.White) },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Trở về", tint = Color.White)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Black.copy(alpha = 0.3f)
+                    )
+                )
+            },
+            containerColor = Color.Transparent
+        ) { innerPadding ->
+            Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                // Camera preview
+                AndroidView(
+                    factory = { previewView },
+                    modifier = Modifier.fillMaxSize()
+                )
+                
+                // Khung quét mã QR (Overlay)
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .padding(48.dp), // khoảng cách từ viền màn hình
+                    contentAlignment = Alignment.Center
+                ) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val strokeWidth = 4.dp.toPx()
+                        val cornerLength = 30.dp.toPx()
+                        val color = Color.White.copy(alpha = 0.9f)
+
+                        // Kích thước khung vuông ở giữa
+                        val frameSize = androidx.compose.ui.geometry.Size(width = 250.dp.toPx(), height = 250.dp.toPx())
+                        val frameTopLeft = Offset(
+                            (size.width - frameSize.width) / 2,
+                            (size.height - frameSize.height) / 2
+                        )
+                        val frameBottomRight = frameTopLeft + Offset(frameSize.width, frameSize.height)
+
+                        // 4 góc
+                        val topLeft = frameTopLeft
+                        val topRight = Offset(frameBottomRight.x, frameTopLeft.y)
+                        val bottomLeft = Offset(frameTopLeft.x, frameBottomRight.y)
+                        val bottomRight = frameBottomRight
+
+                        // Top-left corner (L)
+                        drawLine(color, topLeft, topLeft + Offset(cornerLength, 0f), strokeWidth)
+                        drawLine(color, topLeft, topLeft + Offset(0f, cornerLength), strokeWidth)
+
+                        // Top-right corner (L)
+                        drawLine(color, topRight, topRight - Offset(cornerLength, 0f), strokeWidth)
+                        drawLine(color, topRight, topRight + Offset(0f, cornerLength), strokeWidth)
+
+                        // Bottom-left corner (L)
+                        drawLine(color, bottomLeft, bottomLeft + Offset(cornerLength, 0f), strokeWidth)
+                        drawLine(color, bottomLeft, bottomLeft - Offset(0f, cornerLength), strokeWidth)
+
+                        // Bottom-right corner (L)
+                        drawLine(color, bottomRight, bottomRight - Offset(cornerLength, 0f), strokeWidth)
+                        drawLine(color, bottomRight, bottomRight - Offset(0f, cornerLength), strokeWidth)
+                    }
+
+                }
 
 
+            }
+        }
 
+
+        LaunchedEffect(cameraProviderFuture) {
+            try {
+                val cameraProvider = cameraProviderFuture.get()
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(previewView.surfaceProvider)
+                }
+
+                val barcodeScanner = BarcodeScanning.getClient()
+                val analysisUseCase = ImageAnalysis.Builder()
+                    .setTargetResolution(Size(1280, 720))
+                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    .build()
+
+                analysisUseCase.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
+                    val mediaImage = imageProxy.image
+                    if (mediaImage != null) {
+                        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                        barcodeScanner.process(image)
+                            .addOnSuccessListener { barcodes ->
+                                for (barcode in barcodes) {
+                                    barcode.rawValue?.let { qrContent ->
+                                        imageProxy.close()
+
+                                        handleQrContent(
+                                            qrContent,
+                                            context,
+                                            navController,
+                                            planViewModel,
+                                            authViewModel
+                                        )
+
+                                        barcodeScanner.close()
+                                        return@addOnSuccessListener
+                                    }
+                                }
+                                imageProxy.close()
+                            }
+                            .addOnFailureListener {
+                                imageProxy.close()
+                            }
+                    }
+                }
+
+                val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
+                cameraProvider.unbindAll()
+                cameraProvider.bindToLifecycle(
+                    lifecycleOwner,
+                    cameraSelector,
+                    preview,
+                    analysisUseCase
+                )
+            } catch (e: Exception) {
+                Toast.makeText(context, "Lỗi khởi tạo camera: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+        }
+    } else {
+        // Nếu chưa có quyền, hiện UI xin quyền
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Ứng dụng cần quyền truy cập camera để quét mã QR")
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = { cameraPermissionState.launchPermissionRequest() }) {
+                    Text("Cấp quyền camera")
+                }
+            }
+        }
+    }
+}
+
+fun handleQrContent(
+    qrContent: String,
+    context: Context,
+    navController: NavController,
+    planViewModel: PlanViewModel,
+    authViewModel: AuthViewModel
+) {
+    if (!qrContent.startsWith("https://")) {
+        Toast.makeText(context, "Không nhận diện được liên kết!", Toast.LENGTH_SHORT).show()
+        return
+    }
+    Log.d("handleQrContent", "qrContent = $qrContent")
+
+    Toast.makeText(context, "Đang tải kế hoạch từ QR...", Toast.LENGTH_SHORT).show()
+
+    val outerUri = Uri.parse(qrContent)
+    val innerLinkEncoded = outerUri.getQueryParameter("link") ?: ""
+
+    // Giải mã link bên trong
+    val innerLink = Uri.decode(innerLinkEncoded)
+
+    if (innerLink.isEmpty()) {
+        Toast.makeText(context, "Mã QR không hợp lệ!", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    val innerUri = Uri.parse(innerLink)
+    val planId = outerUri.getQueryParameter("planId")
+    val ownerUid = innerUri.getQueryParameter("uid")
+
+    Log.d("handleQrContent", "planId = $planId, ownerUid = $ownerUid, link = $innerLink")
+
+    if (planId.isNullOrEmpty() || ownerUid.isNullOrEmpty()) {
+        Toast.makeText(context, "Mã QR không hợp lệ!", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    planViewModel.importSharedPlan(planId, ownerUid) { success, plan ->
+        if (success && plan != null) {
+            Log.d("handleQrContent", "Đã tải kế hoạch thành công")
+            navController.navigate("planDetailOwnerQR/${planId}/${ownerUid}")
+        } else {
+            Toast.makeText(context, "Không thể tải kế hoạch", Toast.LENGTH_SHORT).show()
+        }
+    }
+}

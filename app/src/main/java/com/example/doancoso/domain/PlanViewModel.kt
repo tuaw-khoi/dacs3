@@ -298,6 +298,8 @@ class PlanViewModel(
 
             val fullDynamicLink = dynamicLink.uri.toString()
 
+            Log.d("PlanViewModel", "FullDynamicLink: $fullDynamicLink")
+
             // 3. Rút gọn link
             FirebaseDynamicLinks.getInstance()
                 .createDynamicLink()
@@ -369,6 +371,83 @@ class PlanViewModel(
             } catch (e: Exception) {
                 _planState.value = PlanUiState.Error("Lỗi: ${e.localizedMessage}")
                 onError("Lỗi: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    fun importSharedPlan1(planId: String, ownerUid: String, onComplete: (Boolean) -> Unit) {
+        _planState.value = PlanUiState.Loading
+
+        viewModelScope.launch {
+            try {
+                // Lấy plan của owner theo planId
+                val result = planRepository.getPlanById(ownerUid, planId)
+
+                if (result.isSuccess) {
+                    val plan = result.getOrNull()
+                    if (plan != null) {
+                        // Lấy user hiện tại
+                        val currentUid = FirebaseAuth.getInstance().currentUser?.uid
+                        if (currentUid == null) {
+                            _planState.value = PlanUiState.Error("Chưa đăng nhập")
+                            onComplete(false)
+                            return@launch
+                        }
+
+                        // Lưu kế hoạch này vào user hiện tại
+                        planRepository.savePlan(currentUid, plan as PlanResult) { success, _ ->
+                            if (success) {
+                                _planState.value = PlanUiState.Success(plan)
+                                onComplete(true)
+                            } else {
+                                _planState.value = PlanUiState.Error("Lỗi khi lưu kế hoạch")
+                                onComplete(false)
+                            }
+                        }
+                    } else {
+                        _planState.value = PlanUiState.Error("Không tìm thấy kế hoạch")
+                        onComplete(false)
+                    }
+                } else {
+                    _planState.value = PlanUiState.Error("Lỗi khi lấy kế hoạch")
+                    onComplete(false)
+                }
+            } catch (e: Exception) {
+                _planState.value = PlanUiState.Error(e.message ?: "Có lỗi xảy ra")
+                onComplete(false)
+            }
+        }
+    }
+
+    fun importSharedPlan(
+        planId: String,
+        ownerUid: String,
+        onComplete: (Boolean, PlanResultDb?) -> Unit
+    ) {
+        _planState.value = PlanUiState.Loading
+
+        viewModelScope.launch {
+            try {
+                val result = planRepository.getPlanById(ownerUid, planId)
+
+                if (result.isSuccess) {
+                    val plan = result.getOrNull()
+                    if (plan != null) {
+                        // Gán state để hiển thị kế hoạch cho người dùng
+                        _planState.value = PlanUiState.Success(plan)
+                        // Truyền plan ra ngoài để dùng
+                        onComplete(true, plan)
+                    } else {
+                        _planState.value = PlanUiState.Error("Không tìm thấy kế hoạch")
+                        onComplete(false, null)
+                    }
+                } else {
+                    _planState.value = PlanUiState.Error("Lỗi khi lấy kế hoạch")
+                    onComplete(false, null)
+                }
+            } catch (e: Exception) {
+                _planState.value = PlanUiState.Error(e.message ?: "Có lỗi xảy ra")
+                onComplete(false, null)
             }
         }
     }
